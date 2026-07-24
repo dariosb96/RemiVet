@@ -1,13 +1,87 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../lib/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         UserRole @default(ADMIN)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Service {
+  id                String @id @default(cuid())
+
+  name              String
+  durationMinutes   Int
+
+  active            Boolean @default(true)
+
+  displayOrder      Int @default(0)
+
+  appointments      Appointment[]
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model Appointment {
+  id String @id @default(cuid())
+
+  googleEventId String? @unique
+
+  serviceId String
+  service   Service @relation(fields: [serviceId], references: [id])
+
+  ownerName String
+  phone     String
+  petName   String
+
+  startAt DateTime
+  endAt   DateTime
+
+  status AppointmentStatus @default(PENDING)
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Settings {
+  id String @id @default(cuid())
+
+  clinicName String
+
+  openingTime String
+  closingTime String
+
+  slotIntervalMinutes Int @default(15)
+
+  googleCalendarId String?
+
+  timezone String @default("America/Mexico_City")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
