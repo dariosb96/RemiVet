@@ -39,7 +39,9 @@ model Service {
 
   displayOrder      Int @default(0)
 
-  appointments      Appointment[]
+  color             String?
+
+  appointments       Appointment[]
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -51,11 +53,13 @@ model Appointment {
   googleEventId String? @unique
 
   serviceId String
-  service   Service @relation(fields: [serviceId], references: [id])
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Restrict)
 
   ownerName String
   phone     String
-  petName   String
+  email     String?
+
+  petName String
 
   startAt DateTime
   endAt   DateTime
@@ -66,6 +70,10 @@ model Appointment {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([startAt])
+  @@index([status])
+  @@index([phone])
 }
 
 model Settings {
@@ -77,6 +85,8 @@ model Settings {
   closingTime String
 
   slotIntervalMinutes Int @default(15)
+
+  appointmentBufferMinutes Int @default(0)
 
   googleCalendarId String?
 
