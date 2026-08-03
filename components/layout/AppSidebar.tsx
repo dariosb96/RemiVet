@@ -1,46 +1,35 @@
-import Link from "next/link";
+"use client";
 
-import { ROUTES } from "@/constants/routes";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 
-const navigation = [
-  {
-    label: "Dashboard",
-    href: ROUTES.DASHBOARD,
-  },
-  {
-    label: "Citas",
-    href: ROUTES.APPOINTMENTS,
-  },
-  {
-    label: "Servicios",
-    href: ROUTES.SERVICES,
-  },
-  {
-    label: "Configuración",
-    href: ROUTES.SETTINGS,
-  },
-];
+interface AppSidebarProps {
+  mobile?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
 
-export function AppSidebar() {
+function SidebarNav() {
   return (
-    <aside className="w-64 border-r bg-white">
-      <div className="border-b p-6">
-        <h2 className="text-xl font-bold">
-          RemiVet
-        </h2>
-      </div>
+    <nav className="flex flex-col gap-1 p-4">
+      {/* your existing nav links go here */}
+    </nav>
+  );
+}
 
-      <nav className="flex flex-col gap-1 p-3">
-        {navigation.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className="rounded-md px-3 py-2 text-sm transition hover:bg-muted"
-          >
-            {item.label}
-          </Link>
-        ))}
-      </nav>
+export function AppSidebar({ mobile, open, onOpenChange }: AppSidebarProps) {
+  if (mobile) {
+    return (
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent side="left" className="w-64 p-0">
+          <SidebarNav />
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
+  return (
+    <aside className="w-64 shrink-0 border-r border-border bg-card">
+      <SidebarNav />
     </aside>
   );
 }

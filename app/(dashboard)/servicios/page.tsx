@@ -1,23 +1,24 @@
-import { prisma } from "@/lib/prisma";
+import { getServices } from "./lib/queries";
+import { CreateServiceDialog } from "./components/create-service-dialog";
 import { ServiceTable } from "./components/service-table";
 
 export default async function ServicesPage() {
-  const services = await prisma.service.findMany({
-    orderBy: {
-      displayOrder: "asc",
-    },
-  });
+  const services = await getServices();
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">
-          Servicios
-        </h1>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">
+            Servicios
+          </h1>
 
-        <p className="text-muted-foreground">
-          Gestiona los servicios disponibles de la clínica.
-        </p>
+          <p className="text-muted-foreground">
+            Gestiona los servicios disponibles de la clínica.
+          </p>
+        </div>
+
+        <CreateServiceDialog />
       </div>
 
       <ServiceTable services={services} />
