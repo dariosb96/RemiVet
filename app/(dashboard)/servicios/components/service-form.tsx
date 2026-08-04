@@ -7,41 +7,43 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
-type ServiceFormState = {
+type ActionResult = {
   success: boolean;
-  errors?: {
-    name?: string[];
-    durationMinutes?: string[];
-    price?: string[];
-    description?: string[];
-    color?: string[];
-  };
+  errors?: Record<string, string[] | undefined>;
   message?: string;
 };
 
 interface ServiceFormProps {
   action: (
-    prevState: ServiceFormState | undefined,
-    formData: FormData
-  ) => Promise<ServiceFormState>;
+    state: ActionResult | null,
+    formData: FormData,
+  ) => Promise<ActionResult>;
+
+  submitLabel: string;
 
   defaultValues?: {
     id?: string;
-    name: string;
-    description: string | null;
-    durationMinutes: number;
-    price: string;
-    color: string | null;
+    name?: string;
+    description?: string | null;
+    durationMinutes?: number;
+    price?: number;
+    color?: string | null;
   };
-
-  submitLabel?: string;
 }
 
-function SubmitButton({ label }: { label: string }) {
+function SubmitButton({
+  label,
+}: {
+  label: string;
+}) {
   const { pending } = useFormStatus();
 
   return (
-    <Button type="submit" className="w-full" disabled={pending}>
+    <Button
+      type="submit"
+      className="w-full"
+      disabled={pending}
+    >
       {pending ? "Guardando..." : label}
     </Button>
   );
@@ -49,40 +51,70 @@ function SubmitButton({ label }: { label: string }) {
 
 export function ServiceForm({
   action,
+  submitLabel,
   defaultValues,
-  submitLabel = "Guardar",
 }: ServiceFormProps) {
-  const [state, formAction] = useActionState(action, undefined);
+  const [state, formAction] =
+    useActionState<ActionResult | null, FormData>(
+      action,
+      null,
+    );
 
   return (
-    <form action={formAction} className="space-y-5">
+    <form
+      action={formAction}
+      className="space-y-5"
+    >
       {defaultValues?.id && (
-        <input type="hidden" name="id" defaultValue={defaultValues.id} />
+        <input
+          type="hidden"
+          name="id"
+          value={defaultValues.id}
+          readOnly
+        />
       )}
 
       <div className="space-y-2">
-        <label className="text-sm font-medium">Nombre</label>
+        <label
+          htmlFor="name"
+          className="text-sm font-medium"
+        >
+          Nombre
+        </label>
+
         <Input
+          id="name"
           name="name"
           required
-          placeholder="Consulta General"
-          defaultValue={defaultValues?.name}
+          defaultValue={defaultValues?.name ?? ""}
         />
-        {state?.errors?.name && (
-          <p className="text-sm text-red-500">{state.errors.name[0]}</p>
+
+        {state?.errors?.name?.[0] && (
+          <p className="text-sm text-destructive">
+            {state.errors.name[0]}
+          </p>
         )}
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium">Descripción</label>
+        <label
+          htmlFor="description"
+          className="text-sm font-medium"
+        >
+          Descripción
+        </label>
+
         <Textarea
+          id="description"
           name="description"
           rows={3}
-          placeholder="Descripción del servicio..."
-          defaultValue={defaultValues?.description ?? ""}
+          defaultValue={
+            defaultValues?.description ?? ""
+          }
         />
-        {state?.errors?.description && (
-          <p className="text-sm text-red-500">
+
+        {state?.errors?.description?.[0] && (
+          <p className="text-sm text-destructive">
             {state.errors.description[0]}
           </p>
         )}
@@ -90,52 +122,97 @@ export function ServiceForm({
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <label className="text-sm font-medium">Duración (min)</label>
+          <label
+            htmlFor="durationMinutes"
+            className="text-sm font-medium"
+          >
+            Duración (min)
+          </label>
+
           <Input
+            id="durationMinutes"
             type="number"
             name="durationMinutes"
             min={5}
             step={5}
             required
-            defaultValue={defaultValues?.durationMinutes ?? 30}
+            defaultValue={
+              defaultValues?.durationMinutes ?? 30
+            }
           />
-          {state?.errors?.durationMinutes && (
-            <p className="text-sm text-red-500">
-              {state.errors.durationMinutes[0]}
+
+          {state?.errors?.durationMinutes?.[0] && (
+            <p className="text-sm text-destructive">
+              {
+                state.errors
+                  .durationMinutes[0]
+              }
             </p>
           )}
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">Precio</label>
+          <label
+            htmlFor="price"
+            className="text-sm font-medium"
+          >
+            Precio
+          </label>
+
           <Input
+            id="price"
             type="number"
             name="price"
+            min={0}
             step="0.01"
-            min="0"
             required
-            defaultValue={defaultValues?.price ?? "0"}
+            defaultValue={
+              defaultValues?.price ?? 0
+            }
           />
-          {state?.errors?.price && (
-            <p className="text-sm text-red-500">{state.errors.price[0]}</p>
+
+          {state?.errors?.price?.[0] && (
+            <p className="text-sm text-destructive">
+              {state.errors.price[0]}
+            </p>
           )}
         </div>
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium">Color</label>
+        <label
+          htmlFor="color"
+          className="text-sm font-medium"
+        >
+          Color
+        </label>
+
         <Input
+          id="color"
           type="color"
           name="color"
-          defaultValue={defaultValues?.color ?? "#3b82f6"}
+          defaultValue={
+            defaultValues?.color ??
+            "#3b82f6"
+          }
         />
+
+        {state?.errors?.color?.[0] && (
+          <p className="text-sm text-destructive">
+            {state.errors.color[0]}
+          </p>
+        )}
       </div>
 
-      {state?.message && !state.success && (
-        <p className="text-sm text-red-500">{state.message}</p>
+      {state?.message && (
+        <p className="text-sm text-destructive">
+          {state.message}
+        </p>
       )}
 
-      <SubmitButton label={submitLabel} />
+      <SubmitButton
+        label={submitLabel}
+      />
     </form>
   );
 }

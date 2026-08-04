@@ -52,10 +52,18 @@ export async function createService(
 }
 
 export async function updateService(
-  id: string,
   _: unknown,
   formData: FormData,
 ) {
+  const id = String(formData.get("id"));
+
+  if (!id) {
+    return {
+      success: false,
+      message: "Servicio inválido.",
+    };
+  }
+
   const parsed = serviceSchema.safeParse({
     name: formData.get("name"),
     description:
