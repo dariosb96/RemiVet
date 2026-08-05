@@ -78,6 +78,7 @@ model Appointment {
   @@index([startAt])
   @@index([status])
   @@index([phone])
+  @@index([serviceId, startAt])
 }
 
 model Settings {
@@ -89,12 +90,13 @@ model Settings {
   closingTime String
 
   slotIntervalMinutes Int @default(15)
-
   appointmentBufferMinutes Int @default(0)
 
   googleCalendarId String?
 
   timezone String @default("America/Mexico_City")
+
+  businessDays Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
