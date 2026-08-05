@@ -1,48 +1,68 @@
-import { getAppointments } from "./actions";
+import { prisma } from "@/lib/prisma";
 
-export default async function AppointmentsPage() {
-  const appointments = await getAppointments();
+import { Button } from "@/components/ui/button";
+
+import { CreateAppointmentDialog } from "./components/create-appointment-dialog";
+import { AppointmentsTable } from "./components/appointments-table";
+
+export default async function CitasPage() {
+
+  const [
+    appointments,
+    services,
+  ] = await Promise.all([
+    prisma.appointment.findMany({
+      include:{
+        service:true,
+      },
+      orderBy:{
+        startAt:"desc",
+      },
+    }),
+
+    prisma.service.findMany({
+      where:{
+        active:true,
+      },
+      orderBy:{
+        displayOrder:"asc",
+      },
+    }),
+  ]);
+
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">
-          Citas
-        </h1>
 
-        <p className="text-muted-foreground">
-          Administra las citas de la clínica.
-        </p>
+      <div className="flex items-center justify-between">
+
+        <div>
+          <h1 className="text-2xl font-semibold">
+            Citas
+          </h1>
+
+          <p className="text-sm text-muted-foreground">
+            Administra las citas de la clínica.
+          </p>
+        </div>
+
+
+        <CreateAppointmentDialog
+          services={services}
+        >
+          <Button>
+            Nueva cita
+          </Button>
+        </CreateAppointmentDialog>
+
       </div>
 
-      <div className="rounded-xl border">
-        {appointments.length === 0 ? (
-          <div className="p-6 text-center text-muted-foreground">
-            No hay citas registradas.
-          </div>
-        ) : (
-          <div>
-            {appointments.map((appointment) => (
-              <div
-                key={appointment.id}
-                className="border-b p-4"
-              >
-                <p className="font-medium">
-                  {appointment.ownerName}
-                </p>
 
-                <p className="text-sm">
-                  Mascota: {appointment.petName}
-                </p>
+      <AppointmentsTable
+        appointments={appointments}
+        services={services}
+      />
 
-                <p className="text-sm">
-                  Servicio: {appointment.service.name}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }

@@ -1,10 +1,18 @@
 "use client";
 
-import { Service, AppointmentStatus } from "@prisma/client";
+import {
+  Controller,
+  UseFormReturn,
+} from "react-hook-form";
+
+import { Service } from "@prisma/client";
+
+import { AppointmentFormValues } from "../schema";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+
 import {
   Select,
   SelectContent,
@@ -13,177 +21,232 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { AppointmentFormValues } from "../types";
-
 interface AppointmentFormProps {
+  form: UseFormReturn<AppointmentFormValues>;
   services: Service[];
-  values: AppointmentFormValues;
-  onChange: (
-    values: AppointmentFormValues
-  ) => void;
+  showStatus?: boolean;
 }
 
 export function AppointmentForm({
+  form,
   services,
-  values,
-  onChange,
+  showStatus = true,
 }: AppointmentFormProps) {
-  function update<K extends keyof AppointmentFormValues>(
-    key: K,
-    value: AppointmentFormValues[K]
-  ) {
-    onChange({
-      ...values,
-      [key]: value,
-    });
-  }
+  const {
+    register,
+    control,
+    formState: {
+      errors,
+    },
+  } = form;
 
   return (
     <div className="grid gap-4">
 
       <div className="grid gap-2">
-        <Label>Propietario</Label>
+        <Label htmlFor="ownerName">
+          Propietario
+        </Label>
 
         <Input
-          value={values.ownerName}
-          onChange={(e) =>
-            update("ownerName", e.target.value)
-          }
+          id="ownerName"
+          {...register("ownerName")}
         />
+
+        {errors.ownerName && (
+          <p className="text-sm text-destructive">
+            {errors.ownerName.message}
+          </p>
+        )}
       </div>
 
+
       <div className="grid gap-2">
-        <Label>Teléfono</Label>
+        <Label htmlFor="phone">
+          Teléfono
+        </Label>
 
         <Input
-          value={values.phone}
-          onChange={(e) =>
-            update("phone", e.target.value)
-          }
+          id="phone"
+          {...register("phone")}
         />
+
+        {errors.phone && (
+          <p className="text-sm text-destructive">
+            {errors.phone.message}
+          </p>
+        )}
       </div>
 
+
       <div className="grid gap-2">
-        <Label>Email</Label>
+        <Label htmlFor="email">
+          Email
+        </Label>
 
         <Input
+          id="email"
           type="email"
-          value={values.email}
-          onChange={(e) =>
-            update("email", e.target.value)
-          }
+          {...register("email")}
         />
+
+        {errors.email && (
+          <p className="text-sm text-destructive">
+            {errors.email.message}
+          </p>
+        )}
       </div>
 
+
       <div className="grid gap-2">
-        <Label>Mascota</Label>
+        <Label htmlFor="petName">
+          Mascota
+        </Label>
 
         <Input
-          value={values.petName}
-          onChange={(e) =>
-            update("petName", e.target.value)
-          }
+          id="petName"
+          {...register("petName")}
         />
+
+        {errors.petName && (
+          <p className="text-sm text-destructive">
+            {errors.petName.message}
+          </p>
+        )}
       </div>
+
 
       <div className="grid gap-2">
-        <Label>Servicio</Label>
+        <Label>
+          Servicio
+        </Label>
 
-        <Select
-          value={values.serviceId}
-         onValueChange={(value) =>
-  update("serviceId", value ?? "")
-}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Selecciona un servicio" />
-          </SelectTrigger>
+        <Controller
+          control={control}
+          name="serviceId"
+          render={({ field }) => (
+            <Select
+              value={field.value}
+              onValueChange={field.onChange}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecciona servicio" />
+              </SelectTrigger>
 
-          <SelectContent>
-            {services.map((service) => (
-              <SelectItem
-                key={service.id}
-                value={service.id}
-              >
-                {service.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+              <SelectContent>
+                {services.map((service) => (
+                  <SelectItem
+                    key={service.id}
+                    value={service.id}
+                  >
+                    {service.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        />
+
+        {errors.serviceId && (
+          <p className="text-sm text-destructive">
+            {errors.serviceId.message}
+          </p>
+        )}
       </div>
+
 
       <div className="grid grid-cols-2 gap-4">
 
         <div className="grid gap-2">
-          <Label>Fecha</Label>
+          <Label htmlFor="date">
+            Fecha
+          </Label>
 
           <Input
+            id="date"
             type="date"
-            value={values.date}
-            onChange={(e) =>
-              update("date", e.target.value)
-            }
+            {...register("date")}
           />
+
+          {errors.date && (
+            <p className="text-sm text-destructive">
+              {errors.date.message}
+            </p>
+          )}
         </div>
+
 
         <div className="grid gap-2">
-          <Label>Hora</Label>
+          <Label htmlFor="time">
+            Hora
+          </Label>
 
           <Input
+            id="time"
             type="time"
-            value={values.time}
-            onChange={(e) =>
-              update("time", e.target.value)
-            }
+            {...register("time")}
           />
+
+          {errors.time && (
+            <p className="text-sm text-destructive">
+              {errors.time.message}
+            </p>
+          )}
         </div>
 
       </div>
 
+
+      {showStatus && (
+        <div className="grid gap-2">
+          <Label>
+            Estado
+          </Label>
+
+          <Controller
+            control={control}
+            name="status"
+            render={({ field }) => (
+              <Select
+                value={field.value}
+                onValueChange={field.onChange}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+
+                <SelectContent>
+                  <SelectItem value="PENDING">
+                    Pendiente
+                  </SelectItem>
+
+                  <SelectItem value="CONFIRMED">
+                    Confirmada
+                  </SelectItem>
+
+                  <SelectItem value="COMPLETED">
+                    Completada
+                  </SelectItem>
+
+                  <SelectItem value="CANCELLED">
+                    Cancelada
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          />
+        </div>
+      )}
+
+
       <div className="grid gap-2">
-        <Label>Estado</Label>
-
-        <Select
-          value={values.status}
-          onValueChange={(value) =>
-  update(
-    "status",
-    (value ?? "PENDING") as AppointmentStatus
-  )
-}
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-
-          <SelectContent>
-            <SelectItem value="PENDING">
-              Pendiente
-            </SelectItem>
-
-            <SelectItem value="CONFIRMED">
-              Confirmada
-            </SelectItem>
-
-            <SelectItem value="COMPLETED">
-              Completada
-            </SelectItem>
-
-            <SelectItem value="CANCELLED">
-              Cancelada
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="grid gap-2">
-        <Label>Notas</Label>
+        <Label htmlFor="notes">
+          Notas
+        </Label>
 
         <Textarea
-          value={values.notes}
-          onChange={(e) =>
-            update("notes", e.target.value)
-          }
+          id="notes"
+          {...register("notes")}
         />
       </div>
 
