@@ -1,13 +1,45 @@
-export default function ReservarPage() {
-  return (
-    <div className="mx-auto max-w-3xl px-6 py-16">
-      <h1 className="text-3xl font-bold">
-        Reservar cita
-      </h1>
+import { prisma } from "@/lib/prisma";
 
-      <p className="mt-3 text-muted-foreground">
-        Aquí construiremos el formulario de reservación.
-      </p>
-    </div>
+import { ServiceCard } from "./components/service-card";
+
+export default async function ReservarPage() {
+  const services =
+    await prisma.service.findMany({
+      where: {
+        active: true,
+      },
+      orderBy: {
+        displayOrder: "asc",
+      },
+    });
+
+  return (
+    <main className="container mx-auto max-w-5xl px-6 py-10">
+
+      <div className="mb-10 text-center">
+
+        <h1 className="text-4xl font-bold">
+          Agenda una cita
+        </h1>
+
+        <p className="mt-2 text-muted-foreground">
+          Selecciona el servicio que deseas
+          reservar.
+        </p>
+
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+
+        {services.map((service) => (
+          <ServiceCard
+            key={service.id}
+            service={service}
+          />
+        ))}
+
+      </div>
+
+    </main>
   );
 }

@@ -3,11 +3,12 @@
 import { useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+
+
 import {
-  Appointment,
-  AppointmentStatus,
-  Service,
-} from "@prisma/client";
+  AppointmentDTO,
+  ServiceDTO,
+} from "../types";
 import { toast } from "sonner";
 
 import { updateAppointment } from "../actions";
@@ -32,8 +33,8 @@ import {
 
 
 interface Props {
-  appointment: Appointment;
-  services: Service[];
+  appointment: AppointmentDTO;
+  services: ServiceDTO[];
   children: React.ReactElement;
 }
 

@@ -1,9 +1,9 @@
 "use client";
 
 import {
-  Appointment,
-  Service,
-} from "@prisma/client";
+  AppointmentDTO,
+  ServiceDTO,
+} from "../types";
 
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -13,18 +13,13 @@ import { Button } from "@/components/ui/button";
 import { EditAppointmentDialog } from "./edit-appointment-dialog";
 import { DeleteAppointmentDialog } from "./delete-appointment-dialog";
 
-
 type AppointmentWithService =
-  Appointment & {
-    service: Service;
-  };
-
+  AppointmentDTO;
 
 interface Props {
-  appointments: AppointmentWithService[];
-  services: Service[];
+  appointments: AppointmentDTO[];
+  services: ServiceDTO[];
 }
-
 
 export function AppointmentsTable({
   appointments,
