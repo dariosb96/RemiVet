@@ -9,6 +9,8 @@ export interface ServiceDTO {
   active: boolean;
   displayOrder: number;
   color: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface AppointmentDTO {
@@ -17,14 +19,19 @@ export interface AppointmentDTO {
   phone: string;
   email: string | null;
   petName: string;
-  startAt: Date;
-  endAt: Date;
-  notes: string | null;
-  status: AppointmentStatus;
   serviceId: string;
 
-  service: {
-    id: string;
-    name: string;
-  };
+  startAt: string;
+  endAt: string;
+
+  notes: string | null;
+
+  status: AppointmentStatus;
+
+  googleEventId: string | null;
+
+  createdAt: string;
+  updatedAt: string;
+
+  service: ServiceDTO;
 }

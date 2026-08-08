@@ -10,7 +10,6 @@ import { appointmentSchema } from "./schema";
 
 const APPOINTMENTS_PATH = "/citas";
 
-
 export async function getAppointments() {
   return prisma.appointment.findMany({
     include: {
@@ -21,7 +20,6 @@ export async function getAppointments() {
     },
   });
 }
-
 
 export async function getAppointment(
   id: string
@@ -36,13 +34,11 @@ export async function getAppointment(
   });
 }
 
-
 export async function createAppointment(
   values: unknown
 ) {
   const parsed =
     appointmentSchema.safeParse(values);
-
 
   if (!parsed.success) {
     return {
@@ -53,22 +49,15 @@ export async function createAppointment(
     };
   }
 
-
   try {
     const data =
       await prepareAppointment(
         parsed.data
       );
 
-
-    const appointment =
-      await prisma.appointment.create({
-        data,
-        include: {
-          service: true,
-        },
-      });
-
+    await prisma.appointment.create({
+      data,
+    });
 
     /*
       TODO:
@@ -79,20 +68,14 @@ export async function createAppointment(
       3. Actualizar googleEventId
     */
 
-
     revalidatePath(
       APPOINTMENTS_PATH
     );
 
-
     return {
       success: true,
-      appointment,
     };
-
-
   } catch (error) {
-
     return {
       success: false,
       message:
@@ -100,11 +83,8 @@ export async function createAppointment(
           ? error.message
           : "No fue posible crear la cita.",
     };
-
   }
 }
-
-
 
 export async function updateAppointment(
   id: string,
@@ -112,7 +92,6 @@ export async function updateAppointment(
 ) {
   const parsed =
     appointmentSchema.safeParse(values);
-
 
   if (!parsed.success) {
     return {
@@ -123,16 +102,16 @@ export async function updateAppointment(
     };
   }
 
-
   try {
-
     const exists =
       await prisma.appointment.findUnique({
         where: {
           id,
         },
+        select: {
+          id: true,
+        },
       });
-
 
     if (!exists) {
       return {
@@ -142,27 +121,18 @@ export async function updateAppointment(
       };
     }
 
-
     const data =
       await prepareAppointment(
         parsed.data,
         id
       );
 
-
-    const appointment =
-      await prisma.appointment.update({
-        where: {
-          id,
-        },
-
-        data,
-
-        include: {
-          service: true,
-        },
-      });
-
+    await prisma.appointment.update({
+      where: {
+        id,
+      },
+      data,
+    });
 
     /*
       TODO:
@@ -172,20 +142,14 @@ export async function updateAppointment(
       2. Mantener googleEventId
     */
 
-
     revalidatePath(
       APPOINTMENTS_PATH
     );
 
-
     return {
       success: true,
-      appointment,
     };
-
-
   } catch (error) {
-
     return {
       success: false,
       message:
@@ -193,29 +157,22 @@ export async function updateAppointment(
           ? error.message
           : "No fue posible actualizar la cita.",
     };
-
   }
 }
-
-
 
 export async function deleteAppointment(
   id: string
 ) {
-
   try {
-
     const appointment =
       await prisma.appointment.findUnique({
         where: {
           id,
         },
-
         select: {
           googleEventId: true,
         },
       });
-
 
     if (!appointment) {
       return {
@@ -225,7 +182,6 @@ export async function deleteAppointment(
       };
     }
 
-
     /*
       TODO:
       Google Calendar
@@ -234,28 +190,23 @@ export async function deleteAppointment(
       eliminar evento
     */
 
-
     await prisma.appointment.delete({
       where: {
         id,
       },
     });
 
-
     revalidatePath(
       APPOINTMENTS_PATH
     );
 
-
     return {
       success: true,
     };
-
-
   } catch (error) {
-
     if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error instanceof
+        Prisma.PrismaClientKnownRequestError &&
       error.code === "P2025"
     ) {
       return {
@@ -265,7 +216,6 @@ export async function deleteAppointment(
       };
     }
 
-
     return {
       success: false,
       message:
@@ -273,6 +223,5 @@ export async function deleteAppointment(
           ? error.message
           : "No fue posible eliminar la cita.",
     };
-
   }
 }
