@@ -9,7 +9,7 @@ import { AppointmentsTable } from "./components/appointments-table";
 import {
   ServiceDTO,
   AppointmentDTO,
-} from "./types";
+} from "@/types/appointment"
 
 export default async function CitasPage() {
   const [

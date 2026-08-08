@@ -13,7 +13,10 @@ import {
   AppointmentFormValues,
 } from "../schema";
 
-import { ServiceDTO } from "../types";
+import {
+  ServiceDTO,
+
+} from "@/types/appointment"
 
 import { AppointmentForm } from "./appointment-form";
 

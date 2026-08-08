@@ -6,9 +6,9 @@ import { es } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 
 import {
-  AppointmentDTO,
   ServiceDTO,
-} from "../types";
+  AppointmentDTO,
+} from "@/types/appointment" 
 
 import { EditAppointmentDialog } from "./edit-appointment-dialog";
 import { DeleteAppointmentDialog } from "./delete-appointment-dialog";

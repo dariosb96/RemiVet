@@ -14,7 +14,7 @@ import {
 
 import {
   ServiceDTO,
-} from "../types";
+} from "@/types/appointment"
 
 import {
   Input,
