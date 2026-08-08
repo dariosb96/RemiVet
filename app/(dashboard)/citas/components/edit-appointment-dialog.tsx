@@ -14,9 +14,9 @@ import {
 } from "../schema";
 
 import {
-  AppointmentDTO,
   ServiceDTO,
-} from "../types";
+  AppointmentDTO,
+} from "@/types/appointment"
 
 import { AppointmentForm } from "./appointment-form";
 

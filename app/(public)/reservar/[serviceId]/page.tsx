@@ -3,16 +3,17 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { serialize } from "@/lib/serialize";
 
-import { BookingPage } from "./components/booking-page";
 import {
-  ServiceDTO,
   BookingSettings,
+  ServiceDTO,
 } from "@/types/appointment";
 
+import  {BookingPage} from "./components/booking-page";
 
 interface Props {
-  service: ServiceDTO;
-  settings: BookingSettings;
+  params: Promise<{
+    serviceId: string;
+  }>;
 }
 
 export default async function ReserveServicePage({
@@ -20,16 +21,17 @@ export default async function ReserveServicePage({
 }: Props) {
   const { serviceId } = await params;
 
-  const [rawService, settings] = await Promise.all([
-    prisma.service.findUnique({
-      where: {
-        id: serviceId,
-        active: true,
-      },
-    }),
+  const [rawService, settings] =
+    await Promise.all([
+      prisma.service.findUnique({
+        where: {
+          id: serviceId,
+          active: true,
+        },
+      }),
 
-    prisma.settings.findFirst(),
-  ]);
+      prisma.settings.findFirst(),
+    ]);
 
   if (!rawService || !settings) {
     notFound();
@@ -40,17 +42,21 @@ export default async function ReserveServicePage({
     ServiceDTO
   >(rawService);
 
+  const bookingSettings: BookingSettings = {
+    openingTime: settings.openingTime,
+    closingTime: settings.closingTime,
+    slotIntervalMinutes:
+      settings.slotIntervalMinutes,
+    appointmentBufferMinutes:
+      settings.appointmentBufferMinutes,
+  };
+
   return (
-    <BookingPage
-      service={service}
-      settings={{
-        openingTime: settings.openingTime,
-        closingTime: settings.closingTime,
-        slotIntervalMinutes:
-          settings.slotIntervalMinutes,
-        appointmentBufferMinutes:
-          settings.appointmentBufferMinutes,
-      }}
-    />
+    <main className="mx-auto w-full max-w-3xl px-6 py-12">
+      <BookingPage
+        service={service}
+        settings={bookingSettings}
+      />
+    </main>
   );
 }

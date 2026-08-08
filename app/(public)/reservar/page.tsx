@@ -1,7 +1,6 @@
 import Link from "next/link";
 
 import { prisma } from "@/lib/prisma";
-import { serialize } from "@/lib/serialize";
 
 import { ServiceDTO } from "@/types/appointment";
 
@@ -15,10 +14,19 @@ export default async function ReservePage() {
     },
   });
 
-  const services = serialize<
-    typeof rawServices,
-    ServiceDTO[]
-  >(rawServices);
+  const services: ServiceDTO[] =
+    rawServices.map((service) => ({
+      id: service.id,
+      name: service.name,
+      description: service.description,
+      durationMinutes: service.durationMinutes,
+      price: service.price.toNumber(),
+      active: service.active,
+      displayOrder: service.displayOrder,
+      color: service.color,
+      createdAt: service.createdAt.toISOString(),
+      updatedAt: service.updatedAt.toISOString(),
+    }));
 
   return (
     <main className="mx-auto w-full max-w-5xl px-6 py-12">
