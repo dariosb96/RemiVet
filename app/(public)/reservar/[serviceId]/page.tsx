@@ -8,7 +8,7 @@ import {
   ServiceDTO,
 } from "@/types/appointment";
 
-import  {BookingPage} from "./components/booking-page";
+import { BookingPage } from "./components/booking-page";
 
 interface Props {
   params: Promise<{
@@ -43,16 +43,24 @@ export default async function ReserveServicePage({
   >(rawService);
 
   const bookingSettings: BookingSettings = {
-    openingTime: settings.openingTime,
-    closingTime: settings.closingTime,
+    openingTime:
+      settings.openingTime,
+
+    closingTime:
+      settings.closingTime,
+
     slotIntervalMinutes:
       settings.slotIntervalMinutes,
+
     appointmentBufferMinutes:
       settings.appointmentBufferMinutes,
+
+    businessDays:
+      settings.businessDays,
   };
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-6 py-12">
+    <main className="mx-auto w-full max-w-3xl px-6 py-10">
       <BookingPage
         service={service}
         settings={bookingSettings}

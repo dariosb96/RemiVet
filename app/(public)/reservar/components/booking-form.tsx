@@ -1,18 +1,15 @@
 "use client";
 
 import { useTransition } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { AppointmentStatus, Service } from "@prisma/client";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
-import { createAppointment } from "@/app/(dashboard)/citas/actions";
-
 import {
-  appointmentSchema,
-  AppointmentFormValues,
-} from "@/app/(dashboard)/citas/schema";
+  createPublicAppointment,
+  PublicAppointmentFormValues,
+} from "../actions";
+
+import { ServiceDTO } from "@/types/appointment";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,55 +17,65 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 interface Props {
-  service: Service;
+  service: ServiceDTO;
   slot: Date;
+  onSuccess?: () => void;
 }
 
 export function BookingForm({
   service,
   slot,
+  onSuccess,
 }: Props) {
   const [pending, startTransition] =
     useTransition();
 
-  const form =
-    useForm<AppointmentFormValues>({
-      resolver: zodResolver(
-        appointmentSchema
-      ),
-      defaultValues: {
-        ownerName: "",
-        phone: "",
-        email: "",
-        petName: "",
-        notes: "",
-        serviceId: service.id,
-        date: format(
-          slot,
-          "yyyy-MM-dd"
-        ),
-        time: format(
-          slot,
-          "HH:mm"
-        ),
-        status:
-          AppointmentStatus.PENDING,
-      },
-    });
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    reset,
-  } = form;
-
-  function onSubmit(
-    values: AppointmentFormValues
+  function handleSubmit(
+    event: React.FormEvent<HTMLFormElement>
   ) {
+    event.preventDefault();
+
+    const form =
+      new FormData(event.currentTarget);
+
+    const values: PublicAppointmentFormValues =
+      {
+        ownerName:
+          String(
+            form.get("ownerName") ?? ""
+          ),
+
+        phone:
+          String(
+            form.get("phone") ?? ""
+          ),
+
+        email:
+          String(
+            form.get("email") ?? ""
+          ),
+
+        petName:
+          String(
+            form.get("petName") ?? ""
+          ),
+
+        notes:
+          String(
+            form.get("notes") ?? ""
+          ),
+
+        serviceId: service.id,
+
+        startAt:
+          slot.toISOString(),
+      };
+
     startTransition(async () => {
       const result =
-        await createAppointment(values);
+        await createPublicAppointment(
+          values
+        );
 
       if (!result.success) {
         toast.error(
@@ -80,129 +87,119 @@ export function BookingForm({
       }
 
       toast.success(
-        "¡Tu cita fue reservada!"
+        "¡Tu cita fue reservada correctamente!"
       );
 
-      reset({
-        ownerName: "",
-        phone: "",
-        email: "",
-        petName: "",
-        notes: "",
-        serviceId: service.id,
-        date: format(
-          slot,
-          "yyyy-MM-dd"
-        ),
-        time: format(
-          slot,
-          "HH:mm"
-        ),
-        status:
-          AppointmentStatus.PENDING,
-      });
+      event.currentTarget.reset();
+
+      onSuccess?.();
     });
   }
 
   return (
     <form
-      onSubmit={handleSubmit(
-        onSubmit
-      )}
-      className="mt-8 space-y-5 rounded-xl border p-6"
+      onSubmit={handleSubmit}
+      className="space-y-6 rounded-xl border bg-card p-6"
     >
+      {/* RESUMEN */}
+
       <div>
         <h2 className="text-lg font-semibold">
           Completa tus datos
         </h2>
 
-        <p className="text-sm text-muted-foreground">
+        <p className="mt-1 text-sm text-muted-foreground">
+          {service.name} ·{" "}
           {format(
             slot,
-            "dd/MM/yyyy HH:mm"
-          )}{" "}
-          · {service.name}
+            "dd/MM/yyyy 'a las' HH:mm"
+          )}
         </p>
       </div>
 
-      <div className="grid gap-2">
-        <Label htmlFor="ownerName">
-          Nombre
-        </Label>
+      {/* CLIENTE */}
 
-        <Input
-          id="ownerName"
-          {...register("ownerName")}
-        />
+      <div className="space-y-4">
+        <div>
+          <h3 className="font-medium">
+            Datos del cliente
+          </h3>
+        </div>
 
-        {errors.ownerName && (
-          <p className="text-sm text-destructive">
-            {errors.ownerName.message}
-          </p>
-        )}
+        <div className="grid gap-2">
+          <Label htmlFor="ownerName">
+            Nombre
+          </Label>
+
+          <Input
+            id="ownerName"
+            name="ownerName"
+            placeholder="Tu nombre"
+            required
+          />
+        </div>
+
+        <div className="grid gap-2">
+          <Label htmlFor="phone">
+            Teléfono
+          </Label>
+
+          <Input
+            id="phone"
+            name="phone"
+            type="tel"
+            placeholder="55 1234 5678"
+            required
+          />
+        </div>
+
+        <div className="grid gap-2">
+          <Label htmlFor="email">
+            Correo electrónico
+          </Label>
+
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            placeholder="correo@ejemplo.com"
+          />
+        </div>
       </div>
 
-      <div className="grid gap-2">
-        <Label htmlFor="phone">
-          Teléfono
-        </Label>
+      {/* MASCOTA */}
 
-        <Input
-          id="phone"
-          {...register("phone")}
-        />
+      <div className="space-y-4">
+        <div>
+          <h3 className="font-medium">
+            Datos de la mascota
+          </h3>
+        </div>
 
-        {errors.phone && (
-          <p className="text-sm text-destructive">
-            {errors.phone.message}
-          </p>
-        )}
-      </div>
+        <div className="grid gap-2">
+          <Label htmlFor="petName">
+            Nombre de la mascota
+          </Label>
 
-      <div className="grid gap-2">
-        <Label htmlFor="email">
-          Correo electrónico
-        </Label>
+          <Input
+            id="petName"
+            name="petName"
+            placeholder="Ej. Max"
+            required
+          />
+        </div>
 
-        <Input
-          id="email"
-          type="email"
-          {...register("email")}
-        />
+        <div className="grid gap-2">
+          <Label htmlFor="notes">
+            Notas
+          </Label>
 
-        {errors.email && (
-          <p className="text-sm text-destructive">
-            {errors.email.message}
-          </p>
-        )}
-      </div>
-
-      <div className="grid gap-2">
-        <Label htmlFor="petName">
-          Mascota
-        </Label>
-
-        <Input
-          id="petName"
-          {...register("petName")}
-        />
-
-        {errors.petName && (
-          <p className="text-sm text-destructive">
-            {errors.petName.message}
-          </p>
-        )}
-      </div>
-
-      <div className="grid gap-2">
-        <Label htmlFor="notes">
-          Notas
-        </Label>
-
-        <Textarea
-          id="notes"
-          {...register("notes")}
-        />
+          <Textarea
+            id="notes"
+            name="notes"
+            placeholder="Información adicional..."
+          />
+        </div>
       </div>
 
       <Button

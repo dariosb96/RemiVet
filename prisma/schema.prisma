@@ -32,18 +32,18 @@ model User {
 model Service {
   id String @id @default(cuid())
 
-  name            String
-  description     String?
+  name        String
+  description String?
 
   durationMinutes Int
 
-  price           Decimal @db.Decimal(10,2)
+  price Decimal @db.Decimal(10, 2)
 
-  active          Boolean @default(true)
+  active Boolean @default(true)
 
-  displayOrder    Int @default(0)
+  displayOrder Int @default(0)
 
-  color           String?
+  color String?
 
   appointments Appointment[]
 
@@ -57,16 +57,16 @@ model Appointment {
   googleEventId String? @unique
 
   serviceId String
-  service Service @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Restrict)
 
   ownerName String
-  phone String
-  email String?
+  phone     String
+  email     String?
 
   petName String
 
   startAt DateTime
-  endAt DateTime
+  endAt   DateTime
 
   status AppointmentStatus @default(PENDING)
 
@@ -89,7 +89,7 @@ model Settings {
   openingTime String
   closingTime String
 
-  slotIntervalMinutes Int @default(15)
+  slotIntervalMinutes      Int @default(15)
   appointmentBufferMinutes Int @default(0)
 
   googleCalendarId String?

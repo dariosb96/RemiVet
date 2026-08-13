@@ -20,19 +20,13 @@ export interface AppointmentDTO {
   email: string | null;
   petName: string;
   serviceId: string;
-
   startAt: string;
   endAt: string;
-
   notes: string | null;
-
   status: AppointmentStatus;
-
   googleEventId: string | null;
-
   createdAt: string;
   updatedAt: string;
-
   service: ServiceDTO;
 }
 
@@ -41,4 +35,5 @@ export interface BookingSettings {
   closingTime: string;
   slotIntervalMinutes: number;
   appointmentBufferMinutes: number;
+  businessDays: unknown;
 }
