@@ -3,8 +3,7 @@
 import { addMinutes, parse } from "date-fns";
 
 import { prisma } from "@/lib/prisma";
-
-import { getAvailableSlots } from "./[serviceId]/lib/availability";
+import { getAvailableSlots } from "./lib/availability";
 
 export interface PublicAppointmentFormValues {
   ownerName: string;
@@ -21,14 +20,24 @@ interface GetSlotsInput {
   date: string;
 }
 
+
+
 /**
- * Consulta los horarios disponibles
- * para el flujo público.
+ * =========================================================
+ * OBTENER HORARIOS DISPONIBLES
+ * =========================================================
  */
 export async function getAvailableSlotsAction({
   serviceId,
   date,
 }: GetSlotsInput) {
+  console.log(
+  "🔥🔥🔥 getAvailableSlotsAction EJECUTADA",
+  {
+    serviceId,
+    date,
+  }
+);
   try {
     if (!serviceId || !date) {
       return {
@@ -39,16 +48,20 @@ export async function getAvailableSlotsAction({
       };
     }
 
-    const [service, settings] = await Promise.all([
-      prisma.service.findFirst({
-        where: {
-          id: serviceId,
-          active: true,
-        },
-      }),
+    /*
+     * Buscar servicio y configuración.
+     */
+    const [service, settings] =
+      await Promise.all([
+        prisma.service.findFirst({
+          where: {
+            id: serviceId,
+            active: true,
+          },
+        }),
 
-      prisma.settings.findFirst(),
-    ]);
+        prisma.settings.findFirst(),
+      ]);
 
     if (!service) {
       return {
@@ -64,17 +77,30 @@ export async function getAvailableSlotsAction({
         success: false,
         slots: [],
         message:
-          "La agenda todavía no está configurada.",
+          "La configuración de la clínica no está disponible.",
       };
     }
 
+    /*
+     * Convertir yyyy-MM-dd a Date.
+     *
+     * IMPORTANTE:
+     * No usamos la hora actual aquí.
+     *
+     * Primero necesitamos generar correctamente
+     * los horarios del día seleccionado.
+     */
     const selectedDate = parse(
       date,
       "yyyy-MM-dd",
       new Date()
     );
 
-    if (Number.isNaN(selectedDate.getTime())) {
+    if (
+      Number.isNaN(
+        selectedDate.getTime()
+      )
+    ) {
       return {
         success: false,
         slots: [],
@@ -84,39 +110,21 @@ export async function getAvailableSlotsAction({
     }
 
     /*
-     * No permitir fechas anteriores a hoy.
+     * Normalizamos la fecha al inicio del día.
      */
-    const today = new Date();
-
-    today.setHours(
+    selectedDate.setHours(
       0,
       0,
       0,
       0
     );
-
-    const requestedDay = new Date(
-      selectedDate
-    );
-
-    requestedDay.setHours(
-      0,
-      0,
-      0,
-      0
-    );
-
-    if (requestedDay < today) {
-      return {
-        success: true,
-        slots: [],
-      };
-    }
 
     /*
      * Rango completo del día.
      */
-    const start = new Date(selectedDate);
+    const start = new Date(
+      selectedDate
+    );
 
     start.setHours(
       0,
@@ -125,7 +133,9 @@ export async function getAvailableSlotsAction({
       0
     );
 
-    const end = new Date(selectedDate);
+    const end = new Date(
+      selectedDate
+    );
 
     end.setHours(
       23,
@@ -135,10 +145,8 @@ export async function getAvailableSlotsAction({
     );
 
     /*
-     * Citas existentes.
-     *
-     * Esto consulta directamente Appointment,
-     * pero NO usa la lógica del dashboard.
+     * Obtener citas existentes que
+     * puedan interferir con el día.
      */
     const appointments =
       await prisma.appointment.findMany({
@@ -162,54 +170,117 @@ export async function getAvailableSlotsAction({
       });
 
     /*
-     * Utilizamos únicamente el algoritmo
-     * de disponibilidad.
+     * DEBUG
+     *
+     * Esto nos permitirá saber exactamente
+     * qué está llegando a availability.ts.
      */
-    const slots = getAvailableSlots({
-      date: selectedDate,
+    console.log(
+      "[getAvailableSlotsAction]",
+      {
+        date,
+        selectedDate:
+          selectedDate.toString(),
 
-      appointments,
+        serviceId,
 
-      openingTime:
-        settings.openingTime,
+        service: {
+          name: service.name,
+          durationMinutes:
+            service.durationMinutes,
+        },
 
-      closingTime:
-        settings.closingTime,
+        settings: {
+          openingTime:
+            settings.openingTime,
 
-      interval:
-        settings.slotIntervalMinutes,
+          closingTime:
+            settings.closingTime,
 
-      duration:
-        service.durationMinutes,
+          slotIntervalMinutes:
+            settings.slotIntervalMinutes,
 
-      buffer:
-        settings.appointmentBufferMinutes,
+          appointmentBufferMinutes:
+            settings.appointmentBufferMinutes,
 
-      businessDays:
-        settings.businessDays,
-    });
+          businessDays:
+            settings.businessDays,
+        },
+
+        appointments:
+          appointments.length,
+      }
+    );
 
     /*
-     * Si estamos consultando hoy,
-     * eliminar horarios que ya pasaron.
+     * UNA SOLA FUENTE DE VERDAD
+     * PARA GENERAR LOS HORARIOS.
      */
-    const now = new Date();
+    const slots =
+      getAvailableSlots({
+        date: selectedDate,
 
-    const availableSlots =
-      slots.filter(
-        (slot) => slot > now
-      );
+        appointments,
+
+        openingTime:
+          settings.openingTime,
+
+        closingTime:
+          settings.closingTime,
+
+        interval:
+          settings.slotIntervalMinutes,
+
+        duration:
+          service.durationMinutes,
+
+        buffer:
+          settings.appointmentBufferMinutes,
+
+        businessDays:
+          settings.businessDays,
+      });
+
+    /*
+     * IMPORTANTE:
+     *
+     * Por ahora NO filtramos horarios según
+     * la hora actual.
+     *
+     * Esto elimina temporalmente cualquier
+     * problema causado por timezone/UTC.
+     */
+    const availableSlots = slots;
+
+    console.log(
+      "[getAvailableSlotsAction] resultado:",
+      {
+        generated:
+          slots.length,
+
+        available:
+          availableSlots.length,
+
+        slots:
+          availableSlots.map(
+            (slot) =>
+              slot.toString()
+          ),
+      }
+    );
 
     return {
       success: true,
 
-      slots: availableSlots.map(
-        (slot) => slot.toISOString()
-      ),
+      slots:
+        availableSlots.map(
+          (slot) =>
+            slot.toISOString()
+        ),
     };
   } catch (error) {
     console.error(
-      "getAvailableSlotsAction error:",
+      "[getAvailableSlotsAction] error:",
       error
     );
 
@@ -223,7 +294,9 @@ export async function getAvailableSlotsAction({
 }
 
 /**
- * Crea una cita desde el flujo público.
+ * =========================================================
+ * CREAR CITA PÚBLICA
+ * =========================================================
  */
 export async function createPublicAppointment(
   values: PublicAppointmentFormValues
@@ -239,6 +312,9 @@ export async function createPublicAppointment(
       startAt,
     } = values;
 
+    /*
+     * Validación básica.
+     */
     if (
       !ownerName?.trim() ||
       !phone?.trim() ||
@@ -253,9 +329,17 @@ export async function createPublicAppointment(
       };
     }
 
-    const start = new Date(startAt);
+    /*
+     * Convertir el horario seleccionado.
+     */
+    const start =
+      new Date(startAt);
 
-    if (Number.isNaN(start.getTime())) {
+    if (
+      Number.isNaN(
+        start.getTime()
+      )
+    ) {
       return {
         success: false,
         message:
@@ -264,15 +348,23 @@ export async function createPublicAppointment(
     }
 
     /*
-     * Comprobar que el servicio sigue activo.
+     * Obtener servicio y configuración
+     * nuevamente en el servidor.
+     *
+     * Nunca confiamos únicamente en
+     * los datos enviados por el navegador.
      */
-    const service =
-      await prisma.service.findFirst({
-        where: {
-          id: serviceId,
-          active: true,
-        },
-      });
+    const [service, settings] =
+      await Promise.all([
+        prisma.service.findFirst({
+          where: {
+            id: serviceId,
+            active: true,
+          },
+        }),
+
+        prisma.settings.findFirst(),
+      ]);
 
     if (!service) {
       return {
@@ -282,15 +374,30 @@ export async function createPublicAppointment(
       };
     }
 
-    const end = addMinutes(
-      start,
-      service.durationMinutes
-    );
+    if (!settings) {
+      return {
+        success: false,
+        message:
+          "La configuración de la clínica no está disponible.",
+      };
+    }
 
     /*
-     * Verificación final de concurrencia.
+     * Calcular final de la cita.
      */
-    const conflictingAppointment =
+    const end =
+      addMinutes(
+        start,
+        service.durationMinutes
+      );
+
+    /*
+     * Comprobar conflicto.
+     *
+     * No permitimos que dos citas
+     * se traslapen.
+     */
+    const conflict =
       await prisma.appointment.findFirst({
         where: {
           status: {
@@ -307,7 +414,7 @@ export async function createPublicAppointment(
         },
       });
 
-    if (conflictingAppointment) {
+    if (conflict) {
       return {
         success: false,
         message:
@@ -315,6 +422,9 @@ export async function createPublicAppointment(
       };
     }
 
+    /*
+     * Crear la cita.
+     */
     const appointment =
       await prisma.appointment.create({
         data: {
@@ -343,14 +453,28 @@ export async function createPublicAppointment(
         },
       });
 
+    console.log(
+      "[createPublicAppointment] cita creada:",
+      {
+        id: appointment.id,
+        serviceId:
+          appointment.serviceId,
+        startAt:
+          appointment.startAt,
+        endAt:
+          appointment.endAt,
+      }
+    );
+
     return {
       success: true,
+
       appointmentId:
         appointment.id,
     };
   } catch (error) {
     console.error(
-      "createPublicAppointment error:",
+      "[createPublicAppointment] error:",
       error
     );
 

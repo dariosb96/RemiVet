@@ -11,8 +11,8 @@ import {
 
 import { getAvailableSlotsAction } from "../actions";
 
-import { AvailableSlots } from "../[serviceId]/components/available-slots";
-import { BookingForm } from "../[serviceId]/components/booking-form";
+import { AvailableSlots } from "./available-slots";
+import { BookingForm } from "./booking-form";
 
 interface Props {
   services: ServiceDTO[];
@@ -37,6 +37,9 @@ export function BookingPage({
 
   const [loading, startTransition] =
     useTransition();
+
+  const [bookingCompleted, setBookingCompleted] =
+    useState(false);
 
   const selectedService =
     services.find(
@@ -98,15 +101,128 @@ export function BookingPage({
     });
   }
 
+  /*
+   * Se ejecuta después de que
+   * createPublicAppointment()
+   * devuelve success: true.
+   */
   function handleBookingSuccess() {
+    setBookingCompleted(true);
+  }
+
+  /*
+   * Reinicia completamente el flujo
+   * para permitir otra reserva.
+   */
+  function handleNewBooking() {
+    setBookingCompleted(false);
     setServiceId("");
     setSelectedDate("");
     setSlots([]);
     setSelectedSlot(null);
   }
 
+  /*
+   * PANTALLA DE CONFIRMACIÓN
+   */
+
+if (bookingCompleted) {
+  const confirmedService = services.find(
+    (service) => service.id === serviceId
+  );
+
+  return (
+    <main className="mx-auto w-full max-w-2xl px-6 py-16">
+      <div className="rounded-xl border bg-card p-8 text-center shadow-sm">
+
+        <div className="mb-5 text-5xl">
+          🐾
+        </div>
+
+        <h1 className="text-2xl font-bold">
+          ¡Cita agendada!
+        </h1>
+
+        <p className="mt-3 text-muted-foreground">
+          Tu cita fue registrada correctamente.
+        </p>
+
+        {/* DETALLES DE LA CITA */}
+
+        <div className="mt-6 rounded-xl border bg-muted/50 p-5 text-left">
+          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Detalles de tu cita
+          </h2>
+
+          <div className="space-y-3">
+
+            <div>
+              <p className="text-xs text-muted-foreground">
+                Servicio
+              </p>
+
+              <p className="font-medium">
+                {confirmedService?.name ?? "Servicio"}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs text-muted-foreground">
+                Fecha
+              </p>
+
+              <p className="font-medium">
+                {format(
+                  new Date(
+                    selectedSlot ?? ""
+                  ),
+                  "dd 'de' MMMM 'de' yyyy"
+                )}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs text-muted-foreground">
+                Hora
+              </p>
+
+              <p className="font-medium">
+                {format(
+                  new Date(
+                    selectedSlot ?? ""
+                  ),
+                  "HH:mm"
+                )}
+              </p>
+            </div>
+
+          </div>
+        </div>
+
+        <p className="mt-5 text-sm text-muted-foreground">
+          Te esperamos en RemiVet con tu mascota.
+        </p>
+
+        <button
+          type="button"
+          onClick={handleNewBooking}
+          className="mt-8 inline-flex h-10 items-center justify-center rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        >
+          Agendar otra cita
+        </button>
+
+      </div>
+    </main>
+  );
+}
+
+  /*
+   * FORMULARIO DE RESERVA
+   */
+
   return (
     <main className="mx-auto w-full max-w-2xl px-6 py-10">
+
       <div className="mb-8">
         <h1 className="text-3xl font-bold">
           Reserva tu cita
@@ -118,6 +234,7 @@ export function BookingPage({
       </div>
 
       <div className="space-y-6">
+
         {/* SERVICIO */}
 
         <div className="grid gap-2">
@@ -159,6 +276,7 @@ export function BookingPage({
 
         {selectedService && (
           <div className="grid gap-2">
+
             <label
               htmlFor="date"
               className="text-sm font-medium"
@@ -181,6 +299,7 @@ export function BookingPage({
               }
               className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
             />
+
           </div>
         )}
 
@@ -209,6 +328,7 @@ export function BookingPage({
               }
             />
           )}
+
       </div>
     </main>
   );

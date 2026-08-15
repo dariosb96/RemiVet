@@ -1,12 +1,11 @@
 "use client";
 
-import { useTransition } from "react";
 import { format } from "date-fns";
-import { toast } from "sonner";
+import { useState, useTransition } from "react";
 
 import {
   createPublicAppointment,
-  PublicAppointmentFormValues,
+  type PublicAppointmentFormValues,
 } from "../actions";
 
 import { ServiceDTO } from "@/types/appointment";
@@ -30,55 +29,51 @@ export function BookingForm({
   const [pending, startTransition] =
     useTransition();
 
+  const [error, setError] =
+    useState <string | null>(null);
+
   function handleSubmit(
     event: React.FormEvent<HTMLFormElement>
   ) {
     event.preventDefault();
 
-    const form =
-      new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
 
-    const values: PublicAppointmentFormValues =
-      {
-        ownerName:
-          String(
-            form.get("ownerName") ?? ""
-          ),
+    setError(null);
 
-        phone:
-          String(
-            form.get("phone") ?? ""
-          ),
+    const values: PublicAppointmentFormValues = {
+      ownerName: String(
+        formData.get("ownerName") ?? ""
+      ).trim(),
 
-        email:
-          String(
-            form.get("email") ?? ""
-          ),
+      phone: String(
+        formData.get("phone") ?? ""
+      ).trim(),
 
-        petName:
-          String(
-            form.get("petName") ?? ""
-          ),
+      email: String(
+        formData.get("email") ?? ""
+      ).trim(),
 
-        notes:
-          String(
-            form.get("notes") ?? ""
-          ),
+      petName: String(
+        formData.get("petName") ?? ""
+      ).trim(),
 
-        serviceId: service.id,
+      notes: String(
+        formData.get("notes") ?? ""
+      ).trim(),
 
-        startAt:
-          slot.toISOString(),
-      };
+      serviceId: service.id,
+
+      startAt: slot.toISOString(),
+    };
 
     startTransition(async () => {
       const result =
-        await createPublicAppointment(
-          values
-        );
+        await createPublicAppointment(values);
 
       if (!result.success) {
-        toast.error(
+        setError(
           result.message ??
             "No fue posible reservar la cita."
         );
@@ -86,12 +81,12 @@ export function BookingForm({
         return;
       }
 
-      toast.success(
-        "¡Tu cita fue reservada correctamente!"
-      );
-
-      event.currentTarget.reset();
-
+      /*
+       * La reserva fue creada correctamente.
+       *
+       * BookingPage se encarga de mostrar
+       * la pantalla de confirmación.
+       */
       onSuccess?.();
     });
   }
@@ -99,16 +94,16 @@ export function BookingForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-6 rounded-xl border bg-card p-6"
+      className="space-y-8 rounded-xl border bg-card p-6"
     >
       {/* RESUMEN */}
 
-      <div>
+      <div className="space-y-1">
         <h2 className="text-lg font-semibold">
           Completa tus datos
         </h2>
 
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           {service.name} ·{" "}
           {format(
             slot,
@@ -117,13 +112,25 @@ export function BookingForm({
         </p>
       </div>
 
-      {/* CLIENTE */}
+      {/* ERROR */}
+
+      {error && (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
+      {/* DATOS DEL CLIENTE */}
 
       <div className="space-y-4">
         <div>
           <h3 className="font-medium">
             Datos del cliente
           </h3>
+
+          <p className="text-sm text-muted-foreground">
+            Necesitamos estos datos para confirmar tu cita.
+          </p>
         </div>
 
         <div className="grid gap-2">
@@ -135,6 +142,7 @@ export function BookingForm({
             id="ownerName"
             name="ownerName"
             placeholder="Tu nombre"
+            autoComplete="name"
             required
           />
         </div>
@@ -149,6 +157,7 @@ export function BookingForm({
             name="phone"
             type="tel"
             placeholder="55 1234 5678"
+            autoComplete="tel"
             required
           />
         </div>
@@ -163,17 +172,22 @@ export function BookingForm({
             name="email"
             type="email"
             placeholder="correo@ejemplo.com"
+            autoComplete="email"
           />
         </div>
       </div>
 
-      {/* MASCOTA */}
+      {/* DATOS DE LA MASCOTA */}
 
       <div className="space-y-4">
         <div>
           <h3 className="font-medium">
             Datos de la mascota
           </h3>
+
+          <p className="text-sm text-muted-foreground">
+            Cuéntanos quién es el paciente.
+          </p>
         </div>
 
         <div className="grid gap-2">
@@ -197,10 +211,13 @@ export function BookingForm({
           <Textarea
             id="notes"
             name="notes"
-            placeholder="Información adicional..."
+            placeholder="Información adicional sobre tu mascota o la cita..."
+            rows={4}
           />
         </div>
       </div>
+
+      {/* BOTÓN */}
 
       <Button
         type="submit"
