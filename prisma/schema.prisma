@@ -92,7 +92,8 @@ model Settings {
   slotIntervalMinutes      Int @default(15)
   appointmentBufferMinutes Int @default(0)
 
-  googleCalendarId String?
+  googleCalendarId   String?
+  googleRefreshToken String?
 
   timezone String @default("America/Mexico_City")
 

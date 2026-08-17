@@ -1,6 +1,7 @@
-import { calendar_v3 } from "googleapis";
+import {
+  getAuthenticatedGoogleClient,
+} from "./auth";
 
-import { getGoogleCalendarClient } from "./auth";
 import { CalendarEventInput } from "./types";
 
 export async function createCalendarEvent({
@@ -9,9 +10,12 @@ export async function createCalendarEvent({
   description,
   start,
   end,
-}: CalendarEventInput) {
+  refreshToken,
+}: CalendarEventInput & {
+  refreshToken: string;
+}) {
   const calendar =
-    getGoogleCalendarClient();
+    getAuthenticatedGoogleClient(refreshToken);
 
   const response =
     await calendar.events.insert({
@@ -20,28 +24,21 @@ export async function createCalendarEvent({
       requestBody: {
         summary: title,
 
-        description,
+        description: description ?? undefined,
 
         start: {
           dateTime: start.toISOString(),
-          timeZone:
-            "America/Mexico_City",
+          timeZone: "America/Mexico_City",
         },
 
         end: {
           dateTime: end.toISOString(),
-          timeZone:
-            "America/Mexico_City",
+          timeZone: "America/Mexico_City",
         },
       },
     });
 
   return response.data.id ?? null;
-}
-
-interface UpdateCalendarEventInput
-  extends CalendarEventInput {
-  eventId: string;
 }
 
 export async function updateCalendarEvent({
@@ -51,9 +48,13 @@ export async function updateCalendarEvent({
   description,
   start,
   end,
-}: UpdateCalendarEventInput) {
+  refreshToken,
+}: CalendarEventInput & {
+  eventId: string;
+  refreshToken: string;
+}) {
   const calendar =
-    getGoogleCalendarClient();
+    getAuthenticatedGoogleClient(refreshToken);
 
   await calendar.events.update({
     calendarId,
@@ -63,37 +64,55 @@ export async function updateCalendarEvent({
     requestBody: {
       summary: title,
 
-      description,
+      description: description ?? undefined,
 
       start: {
         dateTime: start.toISOString(),
-        timeZone:
-          "America/Mexico_City",
+        timeZone: "America/Mexico_City",
       },
 
       end: {
         dateTime: end.toISOString(),
-        timeZone:
-          "America/Mexico_City",
+        timeZone: "America/Mexico_City",
       },
     },
   });
 }
 
-interface DeleteCalendarEventInput {
-  calendarId: string;
-  eventId: string;
-}
-
 export async function deleteCalendarEvent({
   calendarId,
   eventId,
-}: DeleteCalendarEventInput) {
+  refreshToken,
+}: {
+  calendarId: string;
+  eventId: string;
+  refreshToken: string;
+}) {
   const calendar =
-    getGoogleCalendarClient();
+    getAuthenticatedGoogleClient(refreshToken);
 
   await calendar.events.delete({
     calendarId,
     eventId,
   });
+}
+
+export async function getCalendarList(
+  refreshToken: string
+) {
+  const calendar =
+    getAuthenticatedGoogleClient(refreshToken);
+
+  const response =
+    await calendar.calendarList.list();
+
+  return (
+    response.data.items?.map((item) => ({
+      id: item.id,
+      summary: item.summary ?? "",
+      description:
+        item.description ?? null,
+      primary: item.primary ?? false,
+    })) ?? []
+  );
 }
