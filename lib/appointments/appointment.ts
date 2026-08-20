@@ -1,12 +1,11 @@
 import { prisma } from "@/lib/prisma";
 
-import { AppointmentFormValues } from "../schema";
-
+import type { AppointmentFormValues } from "@/app/(dashboard)/citas/schema";
 
 export function buildStartDate(
   date: string,
   time: string
-) {
+): Date {
   const startAt = new Date(
     `${date}T${time}:00`
   );
@@ -20,23 +19,21 @@ export function buildStartDate(
   return startAt;
 }
 
-
 export function calculateEndAt(
   startAt: Date,
   durationMinutes: number
-) {
+): Date {
   return new Date(
     startAt.getTime() +
       durationMinutes * 60_000
   );
 }
 
-
 export async function isSlotAvailable(
   startAt: Date,
   endAt: Date,
   excludeAppointmentId?: string
-) {
+): Promise<boolean> {
   const conflict =
     await prisma.appointment.findFirst({
       where: {
@@ -45,6 +42,10 @@ export async function isSlotAvailable(
             not: excludeAppointmentId,
           },
         }),
+
+        status: {
+          not: "CANCELLED",
+        },
 
         startAt: {
           lt: endAt,
@@ -60,35 +61,30 @@ export async function isSlotAvailable(
       },
     });
 
-
   return !conflict;
 }
-
 
 export async function prepareAppointment(
   values: AppointmentFormValues,
   excludeAppointmentId?: string
 ) {
-
   const service =
     await prisma.service.findUnique({
-      where:{
+      where: {
         id: values.serviceId,
       },
 
-      select:{
-        id:true,
-        durationMinutes:true,
+      select: {
+        id: true,
+        durationMinutes: true,
       },
     });
 
-
-  if(!service){
+  if (!service) {
     throw new Error(
       "Servicio no encontrado."
     );
   }
-
 
   const startAt =
     buildStartDate(
@@ -96,13 +92,11 @@ export async function prepareAppointment(
       values.time
     );
 
-
   const endAt =
     calculateEndAt(
       startAt,
       service.durationMinutes
     );
-
 
   const available =
     await isSlotAvailable(
@@ -111,35 +105,34 @@ export async function prepareAppointment(
       excludeAppointmentId
     );
 
-
-  if(!available){
+  if (!available) {
     throw new Error(
       "Ya existe una cita en ese horario."
     );
   }
 
-
   return {
     ownerName:
-      values.ownerName,
+      values.ownerName.trim(),
 
     phone:
-      values.phone,
+      values.phone.trim(),
 
     email:
-      values.email || null,
+      values.email?.trim() || null,
 
     petName:
-      values.petName,
+      values.petName.trim(),
 
     serviceId:
       service.id,
 
     startAt,
+
     endAt,
 
     notes:
-      values.notes || null,
+      values.notes?.trim() || null,
 
     status:
       values.status,

@@ -1,43 +1,32 @@
 "use server";
 
-import { addMinutes, parse } from "date-fns";
+import { parse } from "date-fns";
 
 import { prisma } from "@/lib/prisma";
-import { getAvailableSlots } from "./lib/availability";
 
-export interface PublicAppointmentFormValues {
-  ownerName: string;
-  phone: string;
-  email?: string;
-  petName: string;
-  notes?: string;
-  serviceId: string;
-  startAt: string;
-}
+import {
+  getAvailableSlots,
+} from "@/lib/appointments/availability";
+
+import {
+  createAppointment,
+} from "@/lib/appointments/actions";
 
 interface GetSlotsInput {
   serviceId: string;
   date: string;
 }
 
-
-
 /**
  * =========================================================
  * OBTENER HORARIOS DISPONIBLES
  * =========================================================
  */
+
 export async function getAvailableSlotsAction({
   serviceId,
   date,
 }: GetSlotsInput) {
-  console.log(
-  "🔥🔥🔥 getAvailableSlotsAction EJECUTADA",
-  {
-    serviceId,
-    date,
-  }
-);
   try {
     if (!serviceId || !date) {
       return {
@@ -48,20 +37,19 @@ export async function getAvailableSlotsAction({
       };
     }
 
-    /*
-     * Buscar servicio y configuración.
-     */
-    const [service, settings] =
-      await Promise.all([
-        prisma.service.findFirst({
-          where: {
-            id: serviceId,
-            active: true,
-          },
-        }),
+    const [
+      service,
+      settings,
+    ] = await Promise.all([
+      prisma.service.findFirst({
+        where: {
+          id: serviceId,
+          active: true,
+        },
+      }),
 
-        prisma.settings.findFirst(),
-      ]);
+      prisma.settings.findFirst(),
+    ]);
 
     if (!service) {
       return {
@@ -81,20 +69,12 @@ export async function getAvailableSlotsAction({
       };
     }
 
-    /*
-     * Convertir yyyy-MM-dd a Date.
-     *
-     * IMPORTANTE:
-     * No usamos la hora actual aquí.
-     *
-     * Primero necesitamos generar correctamente
-     * los horarios del día seleccionado.
-     */
-    const selectedDate = parse(
-      date,
-      "yyyy-MM-dd",
-      new Date()
-    );
+    const selectedDate =
+      parse(
+        date,
+        "yyyy-MM-dd",
+        new Date()
+      );
 
     if (
       Number.isNaN(
@@ -109,9 +89,6 @@ export async function getAvailableSlotsAction({
       };
     }
 
-    /*
-     * Normalizamos la fecha al inicio del día.
-     */
     selectedDate.setHours(
       0,
       0,
@@ -119,12 +96,8 @@ export async function getAvailableSlotsAction({
       0
     );
 
-    /*
-     * Rango completo del día.
-     */
-    const start = new Date(
-      selectedDate
-    );
+    const start =
+      new Date(selectedDate);
 
     start.setHours(
       0,
@@ -133,9 +106,8 @@ export async function getAvailableSlotsAction({
       0
     );
 
-    const end = new Date(
-      selectedDate
-    );
+    const end =
+      new Date(selectedDate);
 
     end.setHours(
       23,
@@ -144,10 +116,6 @@ export async function getAvailableSlotsAction({
       999
     );
 
-    /*
-     * Obtener citas existentes que
-     * puedan interferir con el día.
-     */
     const appointments =
       await prisma.appointment.findMany({
         where: {
@@ -169,53 +137,6 @@ export async function getAvailableSlotsAction({
         },
       });
 
-    /*
-     * DEBUG
-     *
-     * Esto nos permitirá saber exactamente
-     * qué está llegando a availability.ts.
-     */
-    console.log(
-      "[getAvailableSlotsAction]",
-      {
-        date,
-        selectedDate:
-          selectedDate.toString(),
-
-        serviceId,
-
-        service: {
-          name: service.name,
-          durationMinutes:
-            service.durationMinutes,
-        },
-
-        settings: {
-          openingTime:
-            settings.openingTime,
-
-          closingTime:
-            settings.closingTime,
-
-          slotIntervalMinutes:
-            settings.slotIntervalMinutes,
-
-          appointmentBufferMinutes:
-            settings.appointmentBufferMinutes,
-
-          businessDays:
-            settings.businessDays,
-        },
-
-        appointments:
-          appointments.length,
-      }
-    );
-
-    /*
-     * UNA SOLA FUENTE DE VERDAD
-     * PARA GENERAR LOS HORARIOS.
-     */
     const slots =
       getAvailableSlots({
         date: selectedDate,
@@ -241,39 +162,11 @@ export async function getAvailableSlotsAction({
           settings.businessDays,
       });
 
-    /*
-     * IMPORTANTE:
-     *
-     * Por ahora NO filtramos horarios según
-     * la hora actual.
-     *
-     * Esto elimina temporalmente cualquier
-     * problema causado por timezone/UTC.
-     */
-    const availableSlots = slots;
-
-    console.log(
-      "[getAvailableSlotsAction] resultado:",
-      {
-        generated:
-          slots.length,
-
-        available:
-          availableSlots.length,
-
-        slots:
-          availableSlots.map(
-            (slot) =>
-              slot.toString()
-          ),
-      }
-    );
-
     return {
       success: true,
 
       slots:
-        availableSlots.map(
+        slots.map(
           (slot) =>
             slot.toISOString()
         ),
@@ -297,30 +190,38 @@ export async function getAvailableSlotsAction({
  * =========================================================
  * CREAR CITA PÚBLICA
  * =========================================================
+ *
+ * El formulario público utiliza:
+ *
+ * date + time
+ *
+ * mientras que el action central utiliza
+ * AppointmentFormValues.
+ *
+ * Por eso aquí solamente adaptamos
+ * los datos y delegamos.
  */
+
+export interface PublicAppointmentFormValues {
+  ownerName: string;
+  phone: string;
+  email?: string;
+  petName: string;
+  notes?: string;
+  serviceId: string;
+  startAt: string;
+}
+
 export async function createPublicAppointment(
   values: PublicAppointmentFormValues
 ) {
   try {
-    const {
-      ownerName,
-      phone,
-      email,
-      petName,
-      notes,
-      serviceId,
-      startAt,
-    } = values;
-
-    /*
-     * Validación básica.
-     */
     if (
-      !ownerName?.trim() ||
-      !phone?.trim() ||
-      !petName?.trim() ||
-      !serviceId ||
-      !startAt
+      !values.ownerName?.trim() ||
+      !values.phone?.trim() ||
+      !values.petName?.trim() ||
+      !values.serviceId ||
+      !values.startAt
     ) {
       return {
         success: false,
@@ -329,11 +230,8 @@ export async function createPublicAppointment(
       };
     }
 
-    /*
-     * Convertir el horario seleccionado.
-     */
     const start =
-      new Date(startAt);
+      new Date(values.startAt);
 
     if (
       Number.isNaN(
@@ -348,23 +246,20 @@ export async function createPublicAppointment(
     }
 
     /*
-     * Obtener servicio y configuración
-     * nuevamente en el servidor.
-     *
-     * Nunca confiamos únicamente en
-     * los datos enviados por el navegador.
+     * Obtener la duración real del servicio.
      */
-    const [service, settings] =
-      await Promise.all([
-        prisma.service.findFirst({
-          where: {
-            id: serviceId,
-            active: true,
-          },
-        }),
+    const service =
+      await prisma.service.findFirst({
+        where: {
+          id: values.serviceId,
+          active: true,
+        },
 
-        prisma.settings.findFirst(),
-      ]);
+        select: {
+          id: true,
+          durationMinutes: true,
+        },
+      });
 
     if (!service) {
       return {
@@ -374,104 +269,62 @@ export async function createPublicAppointment(
       };
     }
 
-    if (!settings) {
-      return {
-        success: false,
-        message:
-          "La configuración de la clínica no está disponible.",
-      };
-    }
-
     /*
-     * Calcular final de la cita.
-     */
-    const end =
-      addMinutes(
-        start,
-        service.durationMinutes
-      );
-
-    /*
-     * Comprobar conflicto.
+     * Convertimos startAt a los campos
+     * que entiende AppointmentFormValues.
      *
-     * No permitimos que dos citas
-     * se traslapen.
+     * IMPORTANTE:
+     * usamos la hora local del servidor.
      */
-    const conflict =
-      await prisma.appointment.findFirst({
-        where: {
-          status: {
-            not: "CANCELLED",
-          },
+    const date =
+      [
+        start.getFullYear(),
+        String(
+          start.getMonth() + 1
+        ).padStart(2, "0"),
+        String(
+          start.getDate()
+        ).padStart(2, "0"),
+      ].join("-");
 
-          startAt: {
-            lt: end,
-          },
+    const time =
+      [
+        String(
+          start.getHours()
+        ).padStart(2, "0"),
+        String(
+          start.getMinutes()
+        ).padStart(2, "0"),
+      ].join(":");
 
-          endAt: {
-            gt: start,
-          },
-        },
-      });
+    const result =
+      await createAppointment({
+        ownerName:
+          values.ownerName,
 
-    if (conflict) {
-      return {
-        success: false,
-        message:
-          "Ese horario acaba de ser ocupado. Selecciona otro horario.",
-      };
-    }
+        phone:
+          values.phone,
 
-    /*
-     * Crear la cita.
-     */
-    const appointment =
-      await prisma.appointment.create({
-        data: {
-          serviceId,
+        email:
+          values.email ?? "",
 
-          ownerName:
-            ownerName.trim(),
+        petName:
+          values.petName,
 
-          phone:
-            phone.trim(),
+        notes:
+          values.notes ?? "",
 
-          email:
-            email?.trim() || null,
-
-          petName:
-            petName.trim(),
-
-          startAt: start,
-
-          endAt: end,
-
-          status: "PENDING",
-
-          notes:
-            notes?.trim() || null,
-        },
-      });
-
-    console.log(
-      "[createPublicAppointment] cita creada:",
-      {
-        id: appointment.id,
         serviceId:
-          appointment.serviceId,
-        startAt:
-          appointment.startAt,
-        endAt:
-          appointment.endAt,
-      }
-    );
+          values.serviceId,
 
-    return {
-      success: true,
+        date,
 
-      appointmentId:
-        appointment.id,
-    };
+        time,
+
+        status: "PENDING",
+      });
+
+    return result;
   } catch (error) {
     console.error(
       "[createPublicAppointment] error:",
@@ -481,7 +334,9 @@ export async function createPublicAppointment(
     return {
       success: false,
       message:
-        "No fue posible reservar la cita. Intenta nuevamente.",
+        error instanceof Error
+          ? error.message
+          : "No fue posible reservar la cita.",
     };
   }
 }

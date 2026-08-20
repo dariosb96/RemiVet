@@ -1,5 +1,4 @@
 import { addMinutes } from "date-fns";
-
 import type { Appointment } from "@prisma/client";
 
 export interface BlockedRange {
@@ -30,12 +29,6 @@ interface AvailableSlotsOptions {
   businessDays?: unknown;
 }
 
-/**
- * Acepta:
- *
- * 09:00
- * 09:00:00
- */
 function normalizeTime(value: string): string | null {
   if (typeof value !== "string") {
     return null;
@@ -127,13 +120,6 @@ function getDaySchedule(
   let weeklySchedule =
     config.weekly?.[dayKey];
 
-  /**
-   * También soportamos:
-   *
-   * monday
-   * tuesday
-   * ...
-   */
   if (!weeklySchedule) {
     const names = [
       "sunday",
@@ -149,10 +135,7 @@ function getDaySchedule(
 
     const namedSchedule =
       (
-        config as Record<
-          string,
-          unknown
-        >
+        config as Record<string, unknown>
       )[name];
 
     if (
@@ -164,12 +147,6 @@ function getDaySchedule(
         namedSchedule as DaySchedule;
     }
 
-    /**
-     * También soportamos:
-     *
-     * monday: true
-     * monday: false
-     */
     if (
       typeof namedSchedule === "boolean"
     ) {
@@ -183,11 +160,6 @@ function getDaySchedule(
     }
   }
 
-  /**
-   * Si no existe businessDays para
-   * ese día, usamos el horario general
-   * de Settings.
-   */
   const baseSchedule =
     weeklySchedule ?? {
       enabled: true,
@@ -214,9 +186,6 @@ function getDaySchedule(
       baseSchedule.blockedRanges ?? [],
   };
 
-  /**
-   * Excepciones por fecha.
-   */
   const exception =
     config.exceptions?.[dateKey];
 
@@ -271,14 +240,6 @@ function generateTimeSlots({
     !normalizedOpening ||
     !normalizedClosing
   ) {
-    console.error(
-      "[availability] Horario inválido:",
-      {
-        openingTime,
-        closingTime,
-      }
-    );
-
     return [];
   }
 
@@ -287,15 +248,6 @@ function generateTimeSlots({
     duration <= 0 ||
     buffer < 0
   ) {
-    console.error(
-      "[availability] Parámetros inválidos:",
-      {
-        interval,
-        duration,
-        buffer,
-      }
-    );
-
     return [];
   }
 
@@ -319,14 +271,6 @@ function generateTimeSlots({
   }
 
   if (closing <= opening) {
-    console.error(
-      "[availability] El cierre es anterior o igual a la apertura:",
-      {
-        openingTime,
-        closingTime,
-      }
-    );
-
     return [];
   }
 
@@ -347,10 +291,6 @@ function generateTimeSlots({
         buffer
       );
 
-    /**
-     * La cita completa debe caber
-     * dentro del horario laboral.
-     */
     if (
       occupiedUntil > closing
     ) {
@@ -494,23 +434,6 @@ export function getAvailableSlots({
       closingTime
     );
 
-  console.log(
-    "[availability] schedule:",
-    {
-      date: date.toISOString(),
-      enabled: schedule.enabled,
-      openingTime:
-        schedule.openingTime,
-      closingTime:
-        schedule.closingTime,
-      interval,
-      duration,
-      buffer,
-      appointments:
-        appointments.length,
-    }
-  );
-
   if (!schedule.enabled) {
     return [];
   }
@@ -529,11 +452,6 @@ export function getAvailableSlots({
       buffer,
     });
 
-  console.log(
-    "[availability] generated:",
-    generatedSlots.length
-  );
-
   const slotsWithoutBlockedRanges =
     removeBlockedRanges(
       generatedSlots,
@@ -543,18 +461,10 @@ export function getAvailableSlots({
       buffer
     );
 
-  const availableSlots =
-    removeOccupiedSlots(
-      slotsWithoutBlockedRanges,
-      appointments,
-      duration,
-      buffer
-    );
-
-  console.log(
-    "[availability] available:",
-    availableSlots.length
+  return removeOccupiedSlots(
+    slotsWithoutBlockedRanges,
+    appointments,
+    duration,
+    buffer
   );
-
-  return availableSlots;
 }

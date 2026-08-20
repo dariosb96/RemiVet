@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { AppointmentStatus } from "@prisma/client";
 import { toast } from "sonner";
 
-import { updateAppointment } from "../actions";
+import { updateAppointment } from "@/lib/appointments/actions";
 
 import {
   appointmentSchema,

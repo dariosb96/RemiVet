@@ -83,16 +83,16 @@ export function AppointmentsTable({
               </Button>
             </EditAppointmentDialog>
 
-            <DeleteAppointmentDialog
-              id={appointment.id}
-            >
-              <Button
-                size="sm"
-                variant="destructive"
-              >
-                Eliminar
-              </Button>
-            </DeleteAppointmentDialog>
+<DeleteAppointmentDialog
+  id={appointment.id}
+>
+  <Button
+    size="sm"
+    variant="destructive"
+  >
+    Cancelar
+  </Button>
+</DeleteAppointmentDialog>
           </div>
         </div>
       ))}

@@ -1,9 +1,9 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
-import { deleteAppointment } from "../actions";
+import { deleteAppointment } from "@/lib/appointments/actions";
 
 import { Button } from "@/components/ui/button";
 
@@ -29,6 +29,8 @@ export function DeleteAppointmentDialog({
   const [pending, startTransition] =
     useTransition();
 
+  const [open, setOpen] = useState(false);
+
   function handleDelete() {
     startTransition(async () => {
       const result =
@@ -37,26 +39,31 @@ export function DeleteAppointmentDialog({
       if (!result.success) {
         toast.error(
           result.message ??
-            "No se pudo eliminar la cita."
+            "No se pudo cancelar la cita."
         );
 
         return;
       }
 
+      setOpen(false);
+
       toast.success(
-        "Cita eliminada."
+        "Cita cancelada."
       );
     });
   }
 
   return (
-    <Dialog>
+    <Dialog
+      open={open}
+      onOpenChange={setOpen}
+    >
       <DialogTrigger render={children} />
 
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            Eliminar cita
+            Cancelar cita
           </DialogTitle>
         </DialogHeader>
 
@@ -68,7 +75,7 @@ export function DeleteAppointmentDialog({
           <DialogClose
             render={
               <Button variant="outline">
-                Cancelar
+                Regresar
               </Button>
             }
           />
@@ -79,8 +86,8 @@ export function DeleteAppointmentDialog({
             onClick={handleDelete}
           >
             {pending
-              ? "Eliminando..."
-              : "Eliminar"}
+              ? "Cancelando..."
+              : "Cancelar cita"}
           </Button>
         </DialogFooter>
       </DialogContent>

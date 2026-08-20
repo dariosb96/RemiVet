@@ -107,12 +107,20 @@ export async function getCalendarList(
     await calendar.calendarList.list();
 
   return (
-    response.data.items?.map((item) => ({
-      id: item.id,
-      summary: item.summary ?? "",
-      description:
-        item.description ?? null,
-      primary: item.primary ?? false,
-    })) ?? []
+    response.data.items
+      ?.filter(
+        (
+          item
+        ): item is typeof item & {
+          id: string;
+        } => Boolean(item.id)
+      )
+      .map((item) => ({
+        id: item.id,
+        summary: item.summary ?? "",
+        description:
+          item.description ?? null,
+        primary: item.primary ?? false,
+      })) ?? []
   );
 }
