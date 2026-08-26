@@ -58,8 +58,9 @@ export function ServiceCard({
 
       </div>
 
-      <Link
-        href={`/reservar/${service.id}`}
+      
+        <Link
+  href="/reservar"
         className={cn(
           buttonVariants(),
           "mt-auto w-full"

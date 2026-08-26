@@ -1,6 +1,10 @@
 "use server";
 
 import { parse } from "date-fns";
+import {
+  fromZonedTime,
+  formatInTimeZone,
+} from "date-fns-tz";
 
 import { prisma } from "@/lib/prisma";
 
@@ -69,6 +73,22 @@ export async function getAvailableSlotsAction({
       };
     }
 
+    /**
+     * =======================================================
+     * TIMEZONE DE LA CLÍNICA
+     * =======================================================
+     */
+
+    const timezone =
+      settings.timezone ||
+      "America/Mexico_City";
+
+    /**
+     * =======================================================
+     * FECHA SELECCIONADA
+     * =======================================================
+     */
+
     const selectedDate =
       parse(
         date,
@@ -89,6 +109,29 @@ export async function getAvailableSlotsAction({
       };
     }
 
+    /**
+     * =======================================================
+     * RANGO DEL DÍA EN EL TIMEZONE DE LA CLÍNICA
+     * =======================================================
+     */
+
+    const dayStart =
+      fromZonedTime(
+        `${date}T00:00:00`,
+        timezone
+      );
+
+    const dayEnd =
+      fromZonedTime(
+        `${date}T23:59:59.999`,
+        timezone
+      );
+
+    /**
+     * Para la lógica de disponibilidad usamos una fecha
+     * cuyos componentes representan el día local de la clínica.
+     */
+
     selectedDate.setHours(
       0,
       0,
@@ -96,35 +139,21 @@ export async function getAvailableSlotsAction({
       0
     );
 
-    const start =
-      new Date(selectedDate);
-
-    start.setHours(
-      0,
-      0,
-      0,
-      0
-    );
-
-    const end =
-      new Date(selectedDate);
-
-    end.setHours(
-      23,
-      59,
-      59,
-      999
-    );
+    /**
+     * =======================================================
+     * OBTENER CITAS EXISTENTES
+     * =======================================================
+     */
 
     const appointments =
       await prisma.appointment.findMany({
         where: {
           startAt: {
-            lt: end,
+            lt: dayEnd,
           },
 
           endAt: {
-            gt: start,
+            gt: dayStart,
           },
 
           status: {
@@ -136,6 +165,12 @@ export async function getAvailableSlotsAction({
           startAt: "asc",
         },
       });
+
+    /**
+     * =======================================================
+     * GENERAR HORARIOS
+     * =======================================================
+     */
 
     const slots =
       getAvailableSlots({
@@ -162,13 +197,119 @@ export async function getAvailableSlotsAction({
           settings.businessDays,
       });
 
+    /**
+     * =======================================================
+     * FILTRAR HORARIOS PASADOS
+     * =======================================================
+     */
+
+    const now = new Date();
+
+    const todayInClinicTimezone =
+      formatInTimeZone(
+        now,
+        timezone,
+        "yyyy-MM-dd"
+      );
+
+    const isToday =
+      date ===
+      todayInClinicTimezone;
+
+    const filteredSlots =
+      isToday
+        ? slots.filter(
+            (slot) => {
+              /**
+               * El slot generado representa una hora
+               * local de la clínica.
+               *
+               * Lo convertimos a un instante real
+               * usando el timezone de la clínica.
+               */
+
+              const localSlot =
+                formatInTimeZone(
+                  slot,
+                  "UTC",
+                  "yyyy-MM-dd'T'HH:mm:ss"
+                );
+
+              const slotInClinicTimezone =
+                fromZonedTime(
+                  localSlot,
+                  timezone
+                );
+
+              return (
+                slotInClinicTimezone.getTime() >
+                now.getTime()
+              );
+            }
+          )
+        : slots;
+
+    /**
+     * =======================================================
+     * LOG
+     * =======================================================
+     */
+
+    console.log(
+      "[PUBLIC AVAILABILITY]",
+      {
+        serviceId,
+        date,
+        timezone,
+
+        now:
+          now.toISOString(),
+
+        todayInClinicTimezone,
+
+        isToday,
+
+        totalSlots:
+          slots.length,
+
+        availableSlots:
+          filteredSlots.length,
+      }
+    );
+
+    /**
+     * =======================================================
+     * DEVOLVER HORARIOS
+     * =======================================================
+     *
+     * IMPORTANTE:
+     *
+     * Cada horario se devuelve como ISO UTC,
+     * pero representa la hora local configurada
+     * por la clínica.
+     */
+
     return {
       success: true,
 
       slots:
-        slots.map(
-          (slot) =>
-            slot.toISOString()
+        filteredSlots.map(
+          (slot) => {
+            const localTime =
+              formatInTimeZone(
+                slot,
+                "UTC",
+                "yyyy-MM-dd'T'HH:mm:ss"
+              );
+
+            const zonedDate =
+              fromZonedTime(
+                localTime,
+                timezone
+              );
+
+            return zonedDate.toISOString();
+          }
         ),
     };
   } catch (error) {
@@ -190,16 +331,6 @@ export async function getAvailableSlotsAction({
  * =========================================================
  * CREAR CITA PÚBLICA
  * =========================================================
- *
- * El formulario público utiliza:
- *
- * date + time
- *
- * mientras que el action central utiliza
- * AppointmentFormValues.
- *
- * Por eso aquí solamente adaptamos
- * los datos y delegamos.
  */
 
 export interface PublicAppointmentFormValues {
@@ -216,6 +347,12 @@ export async function createPublicAppointment(
   values: PublicAppointmentFormValues
 ) {
   try {
+    /**
+     * =======================================================
+     * VALIDACIÓN BÁSICA
+     * =======================================================
+     */
+
     if (
       !values.ownerName?.trim() ||
       !values.phone?.trim() ||
@@ -229,6 +366,12 @@ export async function createPublicAppointment(
           "Completa todos los campos obligatorios.",
       };
     }
+
+    /**
+     * =======================================================
+     * VALIDAR STARTAT
+     * =======================================================
+     */
 
     const start =
       new Date(values.startAt);
@@ -245,9 +388,29 @@ export async function createPublicAppointment(
       };
     }
 
-    /*
-     * Obtener la duración real del servicio.
+    /**
+     * =======================================================
+     * VALIDAR QUE EL HORARIO NO HAYA PASADO
+     * =======================================================
      */
+
+    if (
+      start.getTime() <=
+      Date.now()
+    ) {
+      return {
+        success: false,
+        message:
+          "El horario seleccionado ya pasó. Selecciona otro horario.",
+      };
+    }
+
+    /**
+     * =======================================================
+     * OBTENER SERVICIO
+     * =======================================================
+     */
+
     const service =
       await prisma.service.findFirst({
         where: {
@@ -269,33 +432,102 @@ export async function createPublicAppointment(
       };
     }
 
-    /*
-     * Convertimos startAt a los campos
-     * que entiende AppointmentFormValues.
-     *
-     * IMPORTANTE:
-     * usamos la hora local del servidor.
+    /**
+     * =======================================================
+     * OBTENER CONFIGURACIÓN
+     * =======================================================
      */
+
+    const settings =
+      await prisma.settings.findFirst();
+
+    if (!settings) {
+      return {
+        success: false,
+        message:
+          "La configuración de la clínica no está disponible.",
+      };
+    }
+
+    const timezone =
+      settings.timezone ||
+      "America/Mexico_City";
+
+    /**
+     * =======================================================
+     * CONVERTIR EL INSTANTE A FECHA/HORA LOCAL
+     * =======================================================
+     *
+     * Aquí está la corrección importante.
+     *
+     * Si el usuario seleccionó:
+     *
+     * 15:00 México
+     *
+     * obtenemos:
+     *
+     * date = 2026-08-21
+     * time = 15:00
+     *
+     * independientemente de que el servidor esté en UTC.
+     */
+
     const date =
-      [
-        start.getFullYear(),
-        String(
-          start.getMonth() + 1
-        ).padStart(2, "0"),
-        String(
-          start.getDate()
-        ).padStart(2, "0"),
-      ].join("-");
+      formatInTimeZone(
+        start,
+        timezone,
+        "yyyy-MM-dd"
+      );
 
     const time =
-      [
-        String(
-          start.getHours()
-        ).padStart(2, "0"),
-        String(
-          start.getMinutes()
-        ).padStart(2, "0"),
-      ].join(":");
+      formatInTimeZone(
+        start,
+        timezone,
+        "HH:mm"
+      );
+
+    /**
+     * =======================================================
+     * LOG
+     * =======================================================
+     */
+
+    console.log(
+      "[PUBLIC BOOKING] Sending appointment:",
+      {
+        ownerName:
+          values.ownerName,
+
+        phone:
+          values.phone,
+
+        email:
+          values.email ?? "",
+
+        petName:
+          values.petName,
+
+        serviceId:
+          values.serviceId,
+
+        startAt:
+          values.startAt,
+
+        timezone,
+
+        convertedDate:
+          date,
+
+        convertedTime:
+          time,
+      }
+    );
+
+    /**
+     * =======================================================
+     * CREAR CITA
+     * =======================================================
+     */
 
     const result =
       await createAppointment({
@@ -321,8 +553,20 @@ export async function createPublicAppointment(
 
         time,
 
-        status: "PENDING",
+        status:
+          "PENDING",
       });
+
+    /**
+     * =======================================================
+     * LOG
+     * =======================================================
+     */
+
+    console.log(
+      "[PUBLIC BOOKING] createAppointment result:",
+      result
+    );
 
     return result;
   } catch (error) {

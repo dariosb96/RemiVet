@@ -4,18 +4,17 @@ export default function HomePage() {
   return (
     <main className="mx-auto flex min-h-[calc(100vh-140px)] max-w-5xl flex-col items-center justify-center px-6 py-16 text-center">
       <div className="max-w-2xl">
-        <div className="mb-6 text-5xl">
+        <div className="mb-6 text-5xl text-blue-800">
           🐾
         </div>
 
-        <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-          Agenda la cita de tu mascota
+        <h1 className="text-4xl font-bold tracking-tight sm:text-5xl text-purple-700">
+          RemiVet
         </h1>
 
         <p className="mt-4 text-lg text-muted-foreground">
           Reserva una cita de forma rápida y sencilla.
-          Selecciona el servicio, el horario y completa
-          tus datos.
+          
         </p>
 
         <div className="mt-8">

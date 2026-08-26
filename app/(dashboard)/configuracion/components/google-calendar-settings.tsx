@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
 
 import {
   getGoogleCalendarsAction,
@@ -42,28 +45,178 @@ export function GoogleCalendarSettings({
   const [message, setMessage] =
     useState<string | null>(null);
 
+  /*
+   * IMPORTANTE:
+   *
+   * Este estado representa la conexión REAL que
+   * conocemos desde el cliente.
+   *
+   * Si el servidor devuelve GOOGLE_REAUTH_REQUIRED,
+   * lo ponemos inmediatamente en true.
+   */
+  const [requiresReauth, setRequiresReauth] =
+    useState<boolean>(!connected);
+
+  /*
+   * =========================================================
+   * SINCRONIZAR ESTADO INICIAL
+   * =========================================================
+   */
   useEffect(() => {
-    if (!connected) return;
+    setRequiresReauth(!connected);
+
+    if (!connected) {
+      setCalendars([]);
+      setSelectedCalendar(
+        selectedCalendarId ?? ""
+      );
+    }
+  }, [
+    connected,
+    selectedCalendarId,
+  ]);
+
+  /*
+   * =========================================================
+   * CARGAR CALENDARIOS
+   * =========================================================
+   */
+  useEffect(() => {
+    let cancelled = false;
 
     async function loadCalendars() {
+      /*
+       * Si el servidor ya sabe que no existe token,
+       * no intentamos llamar a Google.
+       */
+      if (!connected) {
+        if (!cancelled) {
+          setCalendars([]);
+          setRequiresReauth(true);
+          setMessage(
+            "Google Calendar no está conectado."
+          );
+        }
+
+        return;
+      }
+
       setLoading(true);
       setMessage(null);
 
-      const result =
-        await getGoogleCalendarsAction();
+      try {
+        const result =
+          await getGoogleCalendarsAction();
 
-      if (result.success) {
-        setCalendars(result.calendars);
-      } else {
-        setMessage(result.error);
+        if (cancelled) {
+          return;
+        }
+
+        /*
+         * =====================================================
+         * GOOGLE OK
+         * =====================================================
+         */
+        if (result.success) {
+          setCalendars(
+            result.calendars
+          );
+
+          setRequiresReauth(false);
+
+          /*
+           * Si todavía no hay calendario seleccionado,
+           * intentamos seleccionar automáticamente el principal.
+           */
+          if (
+            !selectedCalendarId
+          ) {
+            const primaryCalendar =
+              result.calendars.find(
+                (calendar) =>
+                  calendar.primary
+              );
+
+            if (primaryCalendar) {
+              setSelectedCalendar(
+                primaryCalendar.id
+              );
+            }
+          }
+
+          return;
+        }
+
+        /*
+         * =====================================================
+         * GOOGLE REQUIERE REAUTH
+         * =====================================================
+         */
+        setCalendars([]);
+
+        setMessage(
+          result.error
+        );
+
+        if (
+          result.code ===
+          "GOOGLE_REAUTH_REQUIRED"
+        ) {
+          setRequiresReauth(true);
+          return;
+        }
+
+        /*
+         * Cualquier otro error NO significa necesariamente
+         * que haya que reconectar Google.
+         */
+        setRequiresReauth(false);
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        console.error(
+          "[GoogleCalendarSettings] load calendars error:",
+          error
+        );
+
+        setMessage(
+          "No fue posible cargar los calendarios de Google."
+        );
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
-
-      setLoading(false);
     }
 
     loadCalendars();
-  }, [connected]);
 
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    connected,
+    selectedCalendarId,
+  ]);
+
+  /*
+   * =========================================================
+   * CONECTAR / REAUTORIZAR
+   * =========================================================
+   */
+  function handleConnect() {
+    window.location.assign(
+      "/api/google/auth"
+    );
+  }
+
+  /*
+   * =========================================================
+   * GUARDAR CALENDARIO
+   * =========================================================
+   */
   async function handleSave() {
     if (!selectedCalendar) {
       setMessage(
@@ -76,23 +229,60 @@ export function GoogleCalendarSettings({
     setSaving(true);
     setMessage(null);
 
-    const result =
-      await selectGoogleCalendarAction(
-        selectedCalendar
-      );
+    try {
+      const result =
+        await selectGoogleCalendarAction(
+          selectedCalendar
+        );
 
-    if (result.success) {
+      if (result.success) {
+        setMessage(
+          "Calendario guardado correctamente."
+        );
+
+        return;
+      }
+
       setMessage(
-        "Calendario guardado correctamente."
+        result.error
       );
-    } else {
-      setMessage(result.error);
-    }
 
-    setSaving(false);
+      if (
+        result.code ===
+        "GOOGLE_REAUTH_REQUIRED"
+      ) {
+        setRequiresReauth(true);
+      }
+    } catch (error) {
+      console.error(
+        "[GoogleCalendarSettings] save calendar error:",
+        error
+      );
+
+      setMessage(
+        "No fue posible guardar el calendario."
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
-  if (!connected) {
+  /*
+   * =========================================================
+   * REAUTH / NO CONECTADO
+   * =========================================================
+   *
+   * ESTE BLOQUE ES INTENCIONALMENTE SIMPLE.
+   *
+   * No depende de que connected cambie.
+   *
+   * Si cualquiera de las dos condiciones dice que
+   * necesitamos autorización, mostramos el botón.
+   */
+  if (
+    !connected ||
+    requiresReauth
+  ) {
     return (
       <div className="space-y-4 rounded-lg border p-6">
         <div>
@@ -100,24 +290,36 @@ export function GoogleCalendarSettings({
             Google Calendar
           </h2>
 
-          <p className="text-sm text-muted-foreground">
-            Conecta Google Calendar para
-            sincronizar automáticamente las citas.
+          <p className="mt-1 text-sm text-muted-foreground">
+            {connected
+              ? "La conexión actual con Google Calendar ya no es válida."
+              : "Google Calendar todavía no está conectado."}
           </p>
         </div>
 
         <Button
-          onClick={() => {
-            window.location.href =
-              "/api/google/auth";
-          }}
+          type="button"
+          onClick={
+            handleConnect
+          }
         >
-          Conectar Google Calendar
+          Reconectar Google Calendar
         </Button>
+
+        {message && (
+          <p className="text-sm text-muted-foreground">
+            {message}
+          </p>
+        )}
       </div>
     );
   }
 
+  /*
+   * =========================================================
+   * CONECTADO
+   * =========================================================
+   */
   return (
     <div className="space-y-4 rounded-lg border p-6">
       <div>
@@ -140,12 +342,20 @@ export function GoogleCalendarSettings({
 
         {loading ? (
           <p className="text-sm text-muted-foreground">
-            Cargando calendarios...
+            Comprobando conexión y
+            cargando calendarios...
+          </p>
+        ) : calendars.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No se encontraron calendarios
+            disponibles.
           </p>
         ) : (
           <select
             id="calendar"
-            value={selectedCalendar}
+            value={
+              selectedCalendar
+            }
             onChange={(event) => {
               setSelectedCalendar(
                 event.target.value
@@ -157,33 +367,60 @@ export function GoogleCalendarSettings({
               Selecciona un calendario
             </option>
 
-            {calendars.map((calendar) => (
-              <option
-                key={calendar.id}
-                value={calendar.id}
-              >
-                {calendar.summary}
-                {calendar.primary
-                  ? " (principal)"
-                  : ""}
-              </option>
-            ))}
+            {calendars.map(
+              (calendar) => (
+                <option
+                  key={calendar.id}
+                  value={calendar.id}
+                >
+                  {calendar.summary ||
+                    "Sin nombre"}
+
+                  {calendar.primary
+                    ? " (principal)"
+                    : ""}
+                </option>
+              )
+            )}
           </select>
         )}
       </div>
 
-      <Button
-        onClick={handleSave}
-        disabled={
-          saving ||
-          loading ||
-          !selectedCalendar
-        }
-      >
-        {saving
-          ? "Guardando..."
-          : "Guardar calendario"}
-      </Button>
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          onClick={
+            handleSave
+          }
+          disabled={
+            saving ||
+            loading ||
+            !selectedCalendar ||
+            calendars.length === 0
+          }
+        >
+          {saving
+            ? "Guardando..."
+            : "Guardar calendario"}
+        </Button>
+
+        {/*
+         * También dejamos disponible una reconexión manual
+         * aunque aparentemente esté conectado.
+         *
+         * Esto es útil para el caso futuro en que Google
+         * revoque el refresh token.
+         */}
+        <Button
+          type="button"
+          variant="outline"
+          onClick={
+            handleConnect
+          }
+        >
+          Reconectar
+        </Button>
+      </div>
 
       {message && (
         <p className="text-sm text-muted-foreground">

@@ -2,7 +2,40 @@ import {
   getAuthenticatedGoogleClient,
 } from "./auth";
 
-import { CalendarEventInput } from "./types";
+import {
+  isGoogleInvalidGrant,
+} from "./errors";
+
+import type {
+  CalendarEventInput,
+} from "./types";
+
+export class GoogleReauthRequiredError extends Error {
+  constructor() {
+    super(
+      "La conexión con Google Calendar expiró o fue revocada."
+    );
+
+    this.name =
+      "GoogleReauthRequiredError";
+  }
+}
+
+function handleGoogleError(
+  error: unknown
+): never {
+  if (isGoogleInvalidGrant(error)) {
+    throw new GoogleReauthRequiredError();
+  }
+
+  throw error;
+}
+
+/**
+ * =========================================================
+ * CREAR EVENTO
+ * =========================================================
+ */
 
 export async function createCalendarEvent({
   calendarId,
@@ -15,31 +48,50 @@ export async function createCalendarEvent({
   refreshToken: string;
 }) {
   const calendar =
-    getAuthenticatedGoogleClient(refreshToken);
+    getAuthenticatedGoogleClient(
+      refreshToken
+    );
 
-  const response =
-    await calendar.events.insert({
-      calendarId,
+  try {
+    const response =
+      await calendar.events.insert({
+        calendarId,
 
-      requestBody: {
-        summary: title,
+        requestBody: {
+          summary: title,
 
-        description: description ?? undefined,
+          description:
+            description ?? undefined,
 
-        start: {
-          dateTime: start.toISOString(),
-          timeZone: "America/Mexico_City",
+          start: {
+            dateTime:
+              start.toISOString(),
+
+            timeZone:
+              "America/Mexico_City",
+          },
+
+          end: {
+            dateTime:
+              end.toISOString(),
+
+            timeZone:
+              "America/Mexico_City",
+          },
         },
+      });
 
-        end: {
-          dateTime: end.toISOString(),
-          timeZone: "America/Mexico_City",
-        },
-      },
-    });
-
-  return response.data.id ?? null;
+    return response.data.id ?? null;
+  } catch (error) {
+    handleGoogleError(error);
+  }
 }
+
+/**
+ * =========================================================
+ * ACTUALIZAR EVENTO
+ * =========================================================
+ */
 
 export async function updateCalendarEvent({
   calendarId,
@@ -54,30 +106,49 @@ export async function updateCalendarEvent({
   refreshToken: string;
 }) {
   const calendar =
-    getAuthenticatedGoogleClient(refreshToken);
+    getAuthenticatedGoogleClient(
+      refreshToken
+    );
 
-  await calendar.events.update({
-    calendarId,
+  try {
+    await calendar.events.update({
+      calendarId,
 
-    eventId,
+      eventId,
 
-    requestBody: {
-      summary: title,
+      requestBody: {
+        summary: title,
 
-      description: description ?? undefined,
+        description:
+          description ?? undefined,
 
-      start: {
-        dateTime: start.toISOString(),
-        timeZone: "America/Mexico_City",
+        start: {
+          dateTime:
+            start.toISOString(),
+
+          timeZone:
+            "America/Mexico_City",
+        },
+
+        end: {
+          dateTime:
+            end.toISOString(),
+
+          timeZone:
+            "America/Mexico_City",
+        },
       },
-
-      end: {
-        dateTime: end.toISOString(),
-        timeZone: "America/Mexico_City",
-      },
-    },
-  });
+    });
+  } catch (error) {
+    handleGoogleError(error);
+  }
 }
+
+/**
+ * =========================================================
+ * ELIMINAR EVENTO
+ * =========================================================
+ */
 
 export async function deleteCalendarEvent({
   calendarId,
@@ -89,38 +160,61 @@ export async function deleteCalendarEvent({
   refreshToken: string;
 }) {
   const calendar =
-    getAuthenticatedGoogleClient(refreshToken);
+    getAuthenticatedGoogleClient(
+      refreshToken
+    );
 
-  await calendar.events.delete({
-    calendarId,
-    eventId,
-  });
+  try {
+    await calendar.events.delete({
+      calendarId,
+      eventId,
+    });
+  } catch (error) {
+    handleGoogleError(error);
+  }
 }
+
+/**
+ * =========================================================
+ * OBTENER CALENDARIOS
+ * =========================================================
+ */
 
 export async function getCalendarList(
   refreshToken: string
 ) {
   const calendar =
-    getAuthenticatedGoogleClient(refreshToken);
+    getAuthenticatedGoogleClient(
+      refreshToken
+    );
 
-  const response =
-    await calendar.calendarList.list();
+  try {
+    const response =
+      await calendar.calendarList.list();
 
-  return (
-    response.data.items
-      ?.filter(
-        (
-          item
-        ): item is typeof item & {
-          id: string;
-        } => Boolean(item.id)
-      )
-      .map((item) => ({
-        id: item.id,
-        summary: item.summary ?? "",
-        description:
-          item.description ?? null,
-        primary: item.primary ?? false,
-      })) ?? []
-  );
+    return (
+      response.data.items
+        ?.filter(
+          (
+            item
+          ): item is typeof item & {
+            id: string;
+          } => Boolean(item.id)
+        )
+        .map((item) => ({
+          id: item.id,
+
+          summary:
+            item.summary ?? "",
+
+          description:
+            item.description ?? null,
+
+          primary:
+            item.primary ?? false,
+        })) ?? []
+    );
+  } catch (error) {
+    handleGoogleError(error);
+  }
 }

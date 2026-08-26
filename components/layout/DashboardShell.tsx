@@ -1,4 +1,6 @@
-import { ReactNode } from "react";
+"use client";
+
+import { ReactNode, useState } from "react";
 
 import { AppHeader } from "./AppHeader";
 import { AppSidebar } from "./AppSidebar";
@@ -11,12 +13,22 @@ interface DashboardShellProps {
 export function DashboardShell({
   children,
 }: DashboardShellProps) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   return (
     <div className="flex min-h-screen">
       <AppSidebar />
 
-      <div className="flex flex-1 flex-col">
-        <AppHeader />
+      <AppSidebar
+        mobile
+        open={mobileMenuOpen}
+        onOpenChange={setMobileMenuOpen}
+      />
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <AppHeader
+          onMenuClick={() => setMobileMenuOpen(true)}
+        />
 
         <DashboardContent>
           {children}

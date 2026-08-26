@@ -1,4 +1,7 @@
-import { Menu } from "lucide-react";
+"use client";
+
+import { Menu, LogOut } from "lucide-react";
+import { signOut } from "next-auth/react";
 
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
@@ -8,6 +11,12 @@ interface AppHeaderProps {
 }
 
 export function AppHeader({ onMenuClick }: AppHeaderProps) {
+  async function handleLogout() {
+    await signOut({
+      callbackUrl: "/login",
+    });
+  }
+
   return (
     <header className="flex h-16 items-center justify-between border-b border-border bg-card px-4 sm:px-6">
       <div className="flex items-center gap-3">
@@ -37,6 +46,16 @@ export function AppHeader({ onMenuClick }: AppHeaderProps) {
         </div>
 
         <ThemeToggle />
+
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={handleLogout}
+          aria-label="Cerrar sesión"
+          title="Cerrar sesión"
+        >
+          <LogOut className="h-4 w-4" />
+        </Button>
       </div>
     </header>
   );

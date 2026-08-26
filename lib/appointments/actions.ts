@@ -10,7 +10,9 @@ import {
   updateCalendarEvent,
   deleteCalendarEvent,
 } from "@/lib/google/calendar";
-
+import {
+  isGoogleInvalidGrant,
+} from "@/lib/google/errors";
 import {
   prepareAppointment,
 } from "./appointment";
@@ -149,17 +151,43 @@ export async function createAppointment(
 
     let googleConfig;
 
+    console.log(
+  "[CREATE APPOINTMENT] parsed:",
+  parsed.data
+);
+
+console.log(
+  "[CREATE APPOINTMENT] prepared data:",
+  data
+);
+
+console.log(
+  "[CREATE APPOINTMENT] settings:",
+  {
+    googleCalendarId: settings.googleCalendarId,
+    hasRefreshToken:
+      !!settings.googleRefreshToken,
+  }
+);
+
+console.log(
+  "[CREATE APPOINTMENT] Creating Google Calendar event..."
+);
     try {
       googleConfig =
         getGoogleConfig(settings);
     } catch (error) {
+      
       return {
+        
         success: false,
         message:
           error instanceof Error
             ? error.message
             : "Google Calendar no está configurado correctamente.",
+            
       };
+      
     }
 
     /*
@@ -171,9 +199,9 @@ export async function createAppointment(
       });
 
     try {
-      /*
-       * Crear evento en Google Calendar.
-       */
+       console.log(
+    "[CREATE APPOINTMENT] Creating Google Calendar event..."
+  );
       const googleEventId =
         await createCalendarEvent({
           calendarId:
@@ -244,11 +272,61 @@ export async function createAppointment(
 
         googleEventId,
       };
-    } catch (googleError) {
+        } catch (googleError) {
       console.error(
         "[createAppointment] Google Calendar error:",
         googleError
       );
+
+      /*
+       * Google revocó o invalidó el refresh token.
+       *
+       * Invalidamos la conexión inmediatamente.
+       */
+      if (
+        isGoogleInvalidGrant(
+          googleError
+        )
+      ) {
+        await prisma.settings.update({
+          where: {
+            id: settings.id,
+          },
+
+          data: {
+            googleRefreshToken:
+              null,
+
+            googleCalendarId:
+              null,
+          },
+        });
+
+        /*
+         * La cita no se puede considerar creada
+         * porque todavía no fue sincronizada.
+         */
+
+        await prisma.appointment.delete({
+          where: {
+            id: appointment.id,
+          },
+        });
+
+        return {
+          success: false,
+
+          code:
+            "GOOGLE_REAUTH_REQUIRED",
+
+          message:
+            "La conexión con Google Calendar expiró o fue revocada. Es necesario volver a conectar Google Calendar.",
+        };
+      }
+
+      /*
+       * Cualquier otro error de Google.
+       */
 
       await prisma.appointment.delete({
         where: {
@@ -258,6 +336,7 @@ export async function createAppointment(
 
       return {
         success: false,
+
         message:
           "No fue posible sincronizar la cita con Google Calendar.",
       };

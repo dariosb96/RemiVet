@@ -13,7 +13,6 @@ export {
  * OBTENER CITAS
  * =========================================================
  */
-
 export async function getAppointments() {
   return prisma.appointment.findMany({
     include: {
@@ -31,7 +30,6 @@ export async function getAppointments() {
  * OBTENER CITA
  * =========================================================
  */
-
 export async function getAppointment(
   id: string
 ) {

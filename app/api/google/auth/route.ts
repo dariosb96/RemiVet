@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 
-import { getGoogleAuthUrl } from "@/lib/google/auth";
+import {
+  getGoogleAuthUrl,
+} from "@/lib/google/auth";
 
 export async function GET() {
-  const authUrl = getGoogleAuthUrl();
+  const authUrl =
+    getGoogleAuthUrl();
 
-  return NextResponse.redirect(authUrl);
+  return NextResponse.redirect(
+    authUrl
+  );
 }

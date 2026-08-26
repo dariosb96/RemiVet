@@ -4,6 +4,8 @@ import {
   GoogleCalendarSettings,
 } from "./components/google-calendar-settings";
 
+export const dynamic = "force-dynamic";
+
 export default async function ConfigurationPage() {
   const settings =
     await prisma.settings.findFirst();
@@ -28,7 +30,8 @@ export default async function ConfigurationPage() {
       <GoogleCalendarSettings
         connected={connected}
         selectedCalendarId={
-          settings?.googleCalendarId ?? null
+          settings?.googleCalendarId ??
+          null
         }
       />
     </div>
