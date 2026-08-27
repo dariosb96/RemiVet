@@ -12,22 +12,15 @@ export default async function HomePage() {
    * =========================================================
    * USUARIO AUTENTICADO
    * =========================================================
-   *
-   * Si el administrador ya tiene sesión activa,
-   * no tiene sentido mostrarle la landing pública.
-   *
-   * Lo mandamos directamente al dashboard.
+   
    */
   if (session?.user) {
     redirect("/dashboard");
   }
 
   /**
-   * =========================================================
-   * USUARIO NO AUTENTICADO
-   * =========================================================
-   *
-   * Landing pública.
+ * USUARIO NO AUTENTICADO
+     * Landing pública.
    */
   return (
     <main className="flex min-h-[calc(100vh-140px)] flex-col">
