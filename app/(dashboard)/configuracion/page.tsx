@@ -4,6 +4,10 @@ import {
   GoogleCalendarSettings,
 } from "./components/google-calendar-settings";
 
+import {
+  BusinessDaysSettings,
+} from "./components/business-days-settings";
+
 export const dynamic = "force-dynamic";
 
 export default async function ConfigurationPage() {
@@ -26,6 +30,13 @@ export default async function ConfigurationPage() {
           Configura las preferencias de la clínica.
         </p>
       </div>
+
+      <BusinessDaysSettings
+        businessDays={
+          settings?.businessDays ??
+          null
+        }
+      />
 
       <GoogleCalendarSettings
         connected={connected}
