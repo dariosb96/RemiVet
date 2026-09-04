@@ -31,12 +31,6 @@ function handleGoogleError(
   throw error;
 }
 
-/**
- * =========================================================
- * CREAR EVENTO
- * =========================================================
- */
-
 export async function createCalendarEvent({
   calendarId,
   title,
@@ -56,17 +50,14 @@ export async function createCalendarEvent({
     const response =
       await calendar.events.insert({
         calendarId,
-
         requestBody: {
           summary: title,
-
           description:
             description ?? undefined,
 
           start: {
             dateTime:
               start.toISOString(),
-
             timeZone:
               "America/Mexico_City",
           },
@@ -74,7 +65,6 @@ export async function createCalendarEvent({
           end: {
             dateTime:
               end.toISOString(),
-
             timeZone:
               "America/Mexico_City",
           },
@@ -86,12 +76,6 @@ export async function createCalendarEvent({
     handleGoogleError(error);
   }
 }
-
-/**
- * =========================================================
- * ACTUALIZAR EVENTO
- * =========================================================
- */
 
 export async function updateCalendarEvent({
   calendarId,
@@ -113,19 +97,15 @@ export async function updateCalendarEvent({
   try {
     await calendar.events.update({
       calendarId,
-
       eventId,
-
       requestBody: {
         summary: title,
-
         description:
           description ?? undefined,
 
         start: {
           dateTime:
             start.toISOString(),
-
           timeZone:
             "America/Mexico_City",
         },
@@ -133,7 +113,6 @@ export async function updateCalendarEvent({
         end: {
           dateTime:
             end.toISOString(),
-
           timeZone:
             "America/Mexico_City",
         },
@@ -143,12 +122,6 @@ export async function updateCalendarEvent({
     handleGoogleError(error);
   }
 }
-
-/**
- * =========================================================
- * ELIMINAR EVENTO
- * =========================================================
- */
 
 export async function deleteCalendarEvent({
   calendarId,
@@ -174,12 +147,6 @@ export async function deleteCalendarEvent({
   }
 }
 
-/**
- * =========================================================
- * OBTENER CALENDARIOS
- * =========================================================
- */
-
 export async function getCalendarList(
   refreshToken: string
 ) {
@@ -202,14 +169,11 @@ export async function getCalendarList(
           } => Boolean(item.id)
         )
         .map((item) => ({
-          id: item.id,
-
+          id: item.id!,
           summary:
             item.summary ?? "",
-
           description:
             item.description ?? null,
-
           primary:
             item.primary ?? false,
         })) ?? []

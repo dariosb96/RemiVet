@@ -23,15 +23,7 @@ export function getGoogleAuthUrl() {
 
   return oauth2Client.generateAuthUrl({
     access_type: "offline",
-
-    /*
-     * Importante:
-     *
-     * Fuerza a Google a mostrar consentimiento
-     * y permite obtener un refresh token nuevo.
-     */
     prompt: "consent",
-
     scope: [
       "https://www.googleapis.com/auth/calendar",
     ],
@@ -39,10 +31,13 @@ export function getGoogleAuthUrl() {
 }
 
 export async function getGoogleTokens(code: string) {
+  if (!code) {
+    throw new Error("GOOGLE_AUTH_CODE_MISSING");
+  }
+
   const oauth2Client = getOAuth2Client();
 
-  const { tokens } =
-    await oauth2Client.getToken(code);
+  const { tokens } = await oauth2Client.getToken(code);
 
   return tokens;
 }
@@ -51,9 +46,7 @@ export function getAuthenticatedGoogleClient(
   refreshToken: string
 ) {
   if (!refreshToken) {
-    throw new Error(
-      "GOOGLE_REFRESH_TOKEN_MISSING"
-    );
+    throw new Error("GOOGLE_REFRESH_TOKEN_MISSING");
   }
 
   const oauth2Client = getOAuth2Client();

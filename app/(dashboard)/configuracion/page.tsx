@@ -14,9 +14,15 @@ export default async function ConfigurationPage() {
   const settings =
     await prisma.settings.findFirst();
 
+  if (!settings) {
+    throw new Error(
+      "RemiVet: no existe el registro de Settings."
+    );
+  }
+
   const connected =
     Boolean(
-      settings?.googleRefreshToken
+      settings.googleRefreshToken
     );
 
   return (
@@ -33,7 +39,7 @@ export default async function ConfigurationPage() {
 
       <BusinessDaysSettings
         businessDays={
-          settings?.businessDays ??
+          settings.businessDays ??
           null
         }
       />
@@ -41,7 +47,7 @@ export default async function ConfigurationPage() {
       <GoogleCalendarSettings
         connected={connected}
         selectedCalendarId={
-          settings?.googleCalendarId ??
+          settings.googleCalendarId ??
           null
         }
       />
