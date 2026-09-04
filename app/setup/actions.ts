@@ -2,17 +2,103 @@
 
 import bcrypt from "bcryptjs";
 import { Prisma } from "@prisma/client";
-import { redirect } from "next/navigation";
 
 import { prisma } from "@/lib/prisma";
 
 const MIN_PASSWORD_LENGTH = 8;
 
+const DEFAULT_CLINIC_NAME =
+  "Clínica Veterinaria";
+
 const DEFAULT_OPENING_TIME = "09:00";
+
 const DEFAULT_CLOSING_TIME = "18:00";
+
 const DEFAULT_SLOT_INTERVAL_MINUTES = 15;
+
 const DEFAULT_APPOINTMENT_BUFFER_MINUTES = 0;
-const DEFAULT_TIMEZONE = "America/Mexico_City";
+
+const DEFAULT_TIMEZONE =
+  "America/Mexico_City";
+
+function isValidEmail(
+  email: string
+) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+    email
+  );
+}
+
+function getDefaultBusinessDays() {
+  return {
+    weekly: {
+      "0": {
+        enabled: false,
+        openingTime:
+          DEFAULT_OPENING_TIME,
+        closingTime:
+          DEFAULT_CLOSING_TIME,
+        blockedRanges: [],
+      },
+
+      "1": {
+        enabled: true,
+        openingTime:
+          DEFAULT_OPENING_TIME,
+        closingTime:
+          DEFAULT_CLOSING_TIME,
+        blockedRanges: [],
+      },
+
+      "2": {
+        enabled: true,
+        openingTime:
+          DEFAULT_OPENING_TIME,
+        closingTime:
+          DEFAULT_CLOSING_TIME,
+        blockedRanges: [],
+      },
+
+      "3": {
+        enabled: true,
+        openingTime:
+          DEFAULT_OPENING_TIME,
+        closingTime:
+          DEFAULT_CLOSING_TIME,
+        blockedRanges: [],
+      },
+
+      "4": {
+        enabled: true,
+        openingTime:
+          DEFAULT_OPENING_TIME,
+        closingTime:
+          DEFAULT_CLOSING_TIME,
+        blockedRanges: [],
+      },
+
+      "5": {
+        enabled: true,
+        openingTime:
+          DEFAULT_OPENING_TIME,
+        closingTime:
+          DEFAULT_CLOSING_TIME,
+        blockedRanges: [],
+      },
+
+      "6": {
+        enabled: false,
+        openingTime:
+          DEFAULT_OPENING_TIME,
+        closingTime:
+          DEFAULT_CLOSING_TIME,
+        blockedRanges: [],
+      },
+    },
+
+    exceptions: {},
+  };
+}
 
 export async function createInitialAdmin(
   formData: FormData
@@ -61,6 +147,14 @@ export async function createInitialAdmin(
     };
   }
 
+  if (!isValidEmail(email)) {
+    return {
+      success: false,
+      message:
+        "Introduce un email válido.",
+    };
+  }
+
   if (
     password.length <
     MIN_PASSWORD_LENGTH
@@ -68,20 +162,7 @@ export async function createInitialAdmin(
     return {
       success: false,
       message:
-        "La contraseña debe tener al menos 8 caracteres.",
-    };
-  }
-
-  const emailIsValid =
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-      email
-    );
-
-  if (!emailIsValid) {
-    return {
-      success: false,
-      message:
-        "Introduce un email válido.",
+        `La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`,
     };
   }
 
@@ -102,20 +183,10 @@ export async function createInitialAdmin(
    * CREACIÓN INICIAL
    * =========================================================
    *
-   * La primera cuenta y la configuración inicial
-   * se crean juntas.
+   * User + Settings se crean dentro de la misma
+   * transacción.
    *
-   * Si una falla, no se guarda ninguna.
-   *
-   * Esto garantiza:
-   *
-   * User    ✅
-   * Settings ✅
-   *
-   * o:
-   *
-   * User    ❌
-   * Settings ❌
+   * Si cualquiera falla, ninguno queda creado.
    */
 
   try {
@@ -123,7 +194,7 @@ export async function createInitialAdmin(
       async (tx) => {
         /*
          * =====================================================
-         * VERIFICAR QUE REALMENTE SEA EL PRIMER ADMIN
+         * COMPROBAR QUE SEA LA PRIMERA CUENTA
          * =====================================================
          */
 
@@ -157,24 +228,14 @@ export async function createInitialAdmin(
 
         /*
          * =====================================================
-         * CREAR CONFIGURACIÓN INICIAL
+         * CREAR SETTINGS
          * =====================================================
-         *
-         * Google todavía NO está conectado.
-         *
-         * Por eso:
-         *
-         * googleRefreshToken = null
-         * googleCalendarId   = null
-         *
-         * La configuración queda preparada para que,
-         * inmediatamente después del registro, el usuario
-         * conecte Google Calendar desde /configuracion.
          */
 
         await tx.settings.create({
           data: {
-            clinicName: name,
+            clinicName:
+              DEFAULT_CLINIC_NAME,
 
             openingTime:
               DEFAULT_OPENING_TIME,
@@ -195,42 +256,12 @@ export async function createInitialAdmin(
             timezone:
               DEFAULT_TIMEZONE,
 
-            businessDays: {
-              weekly: {
-                "0": {
-                  enabled: false,
-                },
-
-                "1": {
-                  enabled: true,
-                },
-
-                "2": {
-                  enabled: true,
-                },
-
-                "3": {
-                  enabled: true,
-                },
-
-                "4": {
-                  enabled: true,
-                },
-
-                "5": {
-                  enabled: true,
-                },
-
-                "6": {
-                  enabled: false,
-                },
-              },
-
-              exceptions: {},
-            },
+            businessDays:
+              getDefaultBusinessDays(),
           },
         });
       },
+
       {
         isolationLevel:
           Prisma.TransactionIsolationLevel.Serializable,
@@ -275,6 +306,24 @@ export async function createInitialAdmin(
 
     /*
      * =========================================================
+     * EMAIL DUPLICADO
+     * =========================================================
+     */
+
+    if (
+      error instanceof
+        Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      return {
+        success: false,
+        message:
+          "Ese email ya está registrado.",
+      };
+    }
+
+    /*
+     * =========================================================
      * ERROR DESCONOCIDO
      * =========================================================
      */
@@ -293,21 +342,24 @@ export async function createInitialAdmin(
 
   /*
    * =========================================================
-   * FLUJO POST-REGISTRO
+   * IMPORTANTE
    * =========================================================
    *
-   * NO mandamos al usuario al login.
+   * No hacemos redirect aquí.
    *
-   * El requisito es:
+   * La cuenta acaba de crearse pero todavía necesitamos
+   * establecer la sesión de NextAuth.
    *
-   * crear cuenta
-   *      ↓
-   * configuración
-   *      ↓
-   * conectar Google Calendar
+   * SetupForm hará:
    *
-   * Por eso vamos directamente a /configuracion.
+   * createInitialAdmin()
+   *       ↓
+   * signIn("credentials")
+   *       ↓
+   * /configuracion
    */
 
-  redirect("/configuracion");
+  return {
+    success: true,
+  };
 }

@@ -7,7 +7,11 @@ import {
 
 import { useRouter } from "next/navigation";
 
-import { createInitialAdmin } from "./actions";
+import { signIn } from "next-auth/react";
+
+import {
+  createInitialAdmin,
+} from "./actions";
 
 export default function SetupForm() {
   const router = useRouter();
@@ -40,6 +44,12 @@ export default function SetupForm() {
     setLoading(true);
 
     try {
+      /*
+       * =======================================================
+       * CREAR CUENTA
+       * =======================================================
+       */
+
       const formData =
         new FormData(
           event.currentTarget
@@ -51,11 +61,72 @@ export default function SetupForm() {
         );
 
       if (!result.success) {
-        setError(result.message);
+        setError(result.message ?? "Ocurrió un error.");
         return;
       }
 
-      router.push("/login");
+      /*
+       * =======================================================
+       * LOGIN AUTOMÁTICO
+       * =======================================================
+       *
+       * La cuenta ya existe en PostgreSQL.
+       *
+       * Ahora usamos exactamente las mismas credenciales
+       * que acaba de introducir el usuario para crear
+       * la sesión de NextAuth.
+       */
+
+      const loginResult =
+        await signIn(
+          "credentials",
+          {
+            email,
+            password,
+            redirect: false,
+          }
+        );
+
+      /*
+       * =======================================================
+       * COMPROBAR LOGIN
+       * =======================================================
+       */
+
+      if (
+        !loginResult ||
+        loginResult.error
+      ) {
+        console.error(
+          "[SetupForm] Login automático falló:",
+          loginResult?.error
+        );
+
+        setError(
+          "La cuenta fue creada, pero no fue posible iniciar sesión automáticamente. Puedes iniciar sesión manualmente."
+        );
+
+        return;
+      }
+
+      /*
+       * =======================================================
+       * CONFIGURACIÓN
+       * =======================================================
+       *
+       * Ya tenemos:
+       *
+       * User      ✅
+       * Settings  ✅
+       * Sesión    ✅
+       *
+       * Por lo tanto vamos directamente a configuración.
+       */
+
+      router.replace(
+        "/configuracion"
+      );
+
       router.refresh();
     } catch (error) {
       console.error(
@@ -173,7 +244,7 @@ export default function SetupForm() {
         className="w-full rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
       >
         {loading
-          ? "Creando administrador..."
+          ? "Configurando RemiVet..."
           : "Crear administrador"}
       </button>
     </form>
