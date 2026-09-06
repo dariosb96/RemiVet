@@ -1,10 +1,6 @@
 "use server";
 
-import { parse } from "date-fns";
-import {
-  fromZonedTime,
-  formatInTimeZone,
-} from "date-fns-tz";
+import { fromZonedTime } from "date-fns-tz";
 
 import { prisma } from "@/lib/prisma";
 
@@ -16,46 +12,184 @@ import {
   createAppointment,
 } from "@/lib/appointments/actions";
 
-interface GetSlotsInput {
+export interface AvailableSlotsResult {
+  success: boolean;
+  slots: string[];
+  message?: string;
+}
+
+interface GetAvailableSlotsInput {
   serviceId: string;
   date: string;
 }
 
-/**
- * =========================================================
- * OBTENER HORARIOS DISPONIBLES
- * =========================================================
- */
+export interface PublicAppointmentFormValues {
+  ownerName: string;
+  phone: string;
+  email?: string;
+  petName: string;
+  serviceId: string;
+  startAt: string;
+  notes?: string;
+}
+
+function isValidDateString(
+  value: string
+): boolean {
+  if (
+    typeof value !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(value)
+  ) {
+    return false;
+  }
+
+  const date = new Date(
+    `${value}T12:00:00.000Z`
+  );
+
+  if (Number.isNaN(date.getTime())) {
+    return false;
+  }
+
+  return (
+    date.getUTCFullYear() ===
+      Number(value.slice(0, 4)) &&
+    date.getUTCMonth() + 1 ===
+      Number(value.slice(5, 7)) &&
+    date.getUTCDate() ===
+      Number(value.slice(8, 10))
+  );
+}
+
+function getClinicDate(
+  instant: Date,
+  timezone: string
+): string {
+  const parts = new Intl.DateTimeFormat(
+    "en-US",
+    {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }
+  ).formatToParts(instant);
+
+  const year = parts.find(
+    (part) => part.type === "year"
+  )?.value;
+
+  const month = parts.find(
+    (part) => part.type === "month"
+  )?.value;
+
+  const day = parts.find(
+    (part) => part.type === "day"
+  )?.value;
+
+  if (!year || !month || !day) {
+    throw new Error(
+      "No fue posible determinar la fecha."
+    );
+  }
+
+  return `${year}-${month}-${day}`;
+}
+
+function getClinicTime(
+  instant: Date,
+  timezone: string
+): string {
+  const parts = new Intl.DateTimeFormat(
+    "en-GB",
+    {
+      timeZone: timezone,
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }
+  ).formatToParts(instant);
+
+  const hour = parts.find(
+    (part) => part.type === "hour"
+  )?.value;
+
+  const minute = parts.find(
+    (part) => part.type === "minute"
+  )?.value;
+
+  if (!hour || !minute) {
+    throw new Error(
+      "No fue posible determinar la hora."
+    );
+  }
+
+  return `${hour}:${minute}`;
+}
+
+/* =========================================================
+   AVAILABILITY
+========================================================= */
 
 export async function getAvailableSlotsAction({
   serviceId,
   date,
-}: GetSlotsInput) {
+}: GetAvailableSlotsInput): Promise<AvailableSlotsResult> {
   try {
-    if (!serviceId || !date) {
+    if (!serviceId) {
       return {
         success: false,
         slots: [],
         message:
-          "Faltan datos para consultar disponibilidad.",
+          "Debes seleccionar un servicio.",
       };
     }
 
-    const [
-      service,
-      settings,
-    ] = await Promise.all([
-      prisma.service.findFirst({
-        where: {
-          id: serviceId,
-          active: true,
-        },
-      }),
+    if (!isValidDateString(date)) {
+      return {
+        success: false,
+        slots: [],
+        message:
+          "La fecha seleccionada no es válida.",
+      };
+    }
 
-      prisma.settings.findFirst(),
-    ]);
+    const [service, settings] =
+      await Promise.all([
+        prisma.service.findUnique({
+          where: {
+            id: serviceId,
+          },
+
+          select: {
+            id: true,
+            active: true,
+            durationMinutes: true,
+          },
+        }),
+
+        prisma.settings.findFirst({
+          select: {
+            openingTime: true,
+            closingTime: true,
+            slotIntervalMinutes: true,
+            appointmentBufferMinutes: true,
+            timezone: true,
+            businessDays: true,
+          },
+        }),
+      ]);
 
     if (!service) {
+      return {
+        success: false,
+        slots: [],
+        message:
+          "El servicio no existe.",
+      };
+    }
+
+    if (!service.active) {
       return {
         success: false,
         slots: [],
@@ -69,85 +203,31 @@ export async function getAvailableSlotsAction({
         success: false,
         slots: [],
         message:
-          "La configuración de la clínica no está disponible.",
+          "La agenda todavía no está configurada.",
       };
     }
-
-    /**
-     * =======================================================
-     * TIMEZONE DE LA CLÍNICA
-     * =======================================================
-     */
 
     const timezone =
       settings.timezone ||
       "America/Mexico_City";
 
-    /**
-     * =======================================================
-     * FECHA SELECCIONADA
-     * =======================================================
-     */
-
-    const selectedDate =
-      parse(
-        date,
-        "yyyy-MM-dd",
-        new Date()
-      );
-
-    if (
-      Number.isNaN(
-        selectedDate.getTime()
-      )
-    ) {
-      return {
-        success: false,
-        slots: [],
-        message:
-          "La fecha seleccionada no es válida.",
-      };
-    }
-
-    /**
-     * =======================================================
-     * RANGO DEL DÍA EN EL TIMEZONE DE LA CLÍNICA
-     * =======================================================
-     */
-
-    const dayStart =
-      fromZonedTime(
-        `${date}T00:00:00`,
-        timezone
-      );
-
-    const dayEnd =
-      fromZonedTime(
-        `${date}T23:59:59.999`,
-        timezone
-      );
-
-    /**
-     * Para la lógica de disponibilidad usamos una fecha
-     * cuyos componentes representan el día local de la clínica.
-     */
-
-    selectedDate.setHours(
-      0,
-      0,
-      0,
-      0
+    const dayStart = fromZonedTime(
+      `${date}T00:00:00`,
+      timezone
     );
 
-    /**
-     * =======================================================
-     * OBTENER CITAS EXISTENTES
-     * =======================================================
-     */
+    const dayEnd = fromZonedTime(
+      `${date}T23:59:59.999`,
+      timezone
+    );
 
     const appointments =
       await prisma.appointment.findMany({
         where: {
+          status: {
+            not: "CANCELLED",
+          },
+
           startAt: {
             lt: dayEnd,
           },
@@ -155,27 +235,13 @@ export async function getAvailableSlotsAction({
           endAt: {
             gt: dayStart,
           },
-
-          status: {
-            not: "CANCELLED",
-          },
-        },
-
-        orderBy: {
-          startAt: "asc",
         },
       });
 
-    /**
-     * =======================================================
-     * GENERAR HORARIOS
-     * =======================================================
-     */
-
-    const slots =
+    const availableSlots =
       getAvailableSlots({
-        date: selectedDate,
-
+        date,
+        timezone,
         appointments,
 
         openingTime:
@@ -197,124 +263,23 @@ export async function getAvailableSlotsAction({
           settings.businessDays,
       });
 
-    /**
-     * =======================================================
-     * FILTRAR HORARIOS PASADOS
-     * =======================================================
-     */
-
     const now = new Date();
 
-    const todayInClinicTimezone =
-      formatInTimeZone(
-        now,
-        timezone,
-        "yyyy-MM-dd"
+    const slots = availableSlots
+      .filter(
+        (slot) => slot > now
+      )
+      .map(
+        (slot) => slot.toISOString()
       );
-
-    const isToday =
-      date ===
-      todayInClinicTimezone;
-
-    const filteredSlots =
-      isToday
-        ? slots.filter(
-            (slot) => {
-              /**
-               * El slot generado representa una hora
-               * local de la clínica.
-               *
-               * Lo convertimos a un instante real
-               * usando el timezone de la clínica.
-               */
-
-              const localSlot =
-                formatInTimeZone(
-                  slot,
-                  "UTC",
-                  "yyyy-MM-dd'T'HH:mm:ss"
-                );
-
-              const slotInClinicTimezone =
-                fromZonedTime(
-                  localSlot,
-                  timezone
-                );
-
-              return (
-                slotInClinicTimezone.getTime() >
-                now.getTime()
-              );
-            }
-          )
-        : slots;
-
-    /**
-     * =======================================================
-     * LOG
-     * =======================================================
-     */
-
-    console.log(
-      "[PUBLIC AVAILABILITY]",
-      {
-        serviceId,
-        date,
-        timezone,
-
-        now:
-          now.toISOString(),
-
-        todayInClinicTimezone,
-
-        isToday,
-
-        totalSlots:
-          slots.length,
-
-        availableSlots:
-          filteredSlots.length,
-      }
-    );
-
-    /**
-     * =======================================================
-     * DEVOLVER HORARIOS
-     * =======================================================
-     *
-     * IMPORTANTE:
-     *
-     * Cada horario se devuelve como ISO UTC,
-     * pero representa la hora local configurada
-     * por la clínica.
-     */
 
     return {
       success: true,
-
-      slots:
-        filteredSlots.map(
-          (slot) => {
-            const localTime =
-              formatInTimeZone(
-                slot,
-                "UTC",
-                "yyyy-MM-dd'T'HH:mm:ss"
-              );
-
-            const zonedDate =
-              fromZonedTime(
-                localTime,
-                timezone
-              );
-
-            return zonedDate.toISOString();
-          }
-        ),
+      slots,
     };
   } catch (error) {
     console.error(
-      "[getAvailableSlotsAction] error:",
+      "[getAvailableSlotsAction public]",
       error
     );
 
@@ -322,130 +287,57 @@ export async function getAvailableSlotsAction({
       success: false,
       slots: [],
       message:
-        "No fue posible consultar los horarios disponibles.",
+        error instanceof Error
+          ? error.message
+          : "No fue posible consultar los horarios.",
     };
   }
 }
 
-/**
- * =========================================================
- * CREAR CITA PÚBLICA
- * =========================================================
- */
-
-export interface PublicAppointmentFormValues {
-  ownerName: string;
-  phone: string;
-  email?: string;
-  petName: string;
-  notes?: string;
-  serviceId: string;
-  startAt: string;
-}
+/* =========================================================
+   CREATE PUBLIC
+========================================================= */
 
 export async function createPublicAppointment(
   values: PublicAppointmentFormValues
 ) {
   try {
-    /**
-     * =======================================================
-     * VALIDACIÓN BÁSICA
-     * =======================================================
-     */
-
-    if (
-      !values.ownerName?.trim() ||
-      !values.phone?.trim() ||
-      !values.petName?.trim() ||
-      !values.serviceId ||
-      !values.startAt
-    ) {
+    if (!values.startAt) {
       return {
         success: false,
         message:
-          "Completa todos los campos obligatorios.",
+          "Debes seleccionar un horario.",
       };
     }
 
-    /**
-     * =======================================================
-     * VALIDAR STARTAT
-     * =======================================================
-     */
-
-    const start =
-      new Date(values.startAt);
+    const startAt = new Date(
+      values.startAt
+    );
 
     if (
       Number.isNaN(
-        start.getTime()
+        startAt.getTime()
       )
     ) {
       return {
         success: false,
         message:
-          "La fecha de la cita no es válida.",
+          "El horario seleccionado no es válido.",
       };
     }
-
-    /**
-     * =======================================================
-     * VALIDAR QUE EL HORARIO NO HAYA PASADO
-     * =======================================================
-     */
-
-    if (
-      start.getTime() <=
-      Date.now()
-    ) {
-      return {
-        success: false,
-        message:
-          "El horario seleccionado ya pasó. Selecciona otro horario.",
-      };
-    }
-
-    /**
-     * =======================================================
-     * OBTENER SERVICIO
-     * =======================================================
-     */
-
-    const service =
-      await prisma.service.findFirst({
-        where: {
-          id: values.serviceId,
-          active: true,
-        },
-
-        select: {
-          id: true,
-          durationMinutes: true,
-        },
-      });
-
-    if (!service) {
-      return {
-        success: false,
-        message:
-          "El servicio seleccionado ya no está disponible.",
-      };
-    }
-
-    /**
-     * =======================================================
-     * OBTENER CONFIGURACIÓN
-     * =======================================================
-     */
 
     const settings =
-      await prisma.settings.findFirst();
+      await prisma.settings.findFirst({
+        select: {
+          timezone: true,
+        },
+      });
 
     if (!settings) {
       return {
         success: false,
         message:
-          "La configuración de la clínica no está disponible.",
+          "La agenda todavía no está configurada.",
       };
     }
 
@@ -453,125 +345,85 @@ export async function createPublicAppointment(
       settings.timezone ||
       "America/Mexico_City";
 
-    /**
-     * =======================================================
-     * CONVERTIR EL INSTANTE A FECHA/HORA LOCAL
-     * =======================================================
-     *
-     * Aquí está la corrección importante.
-     *
-     * Si el usuario seleccionó:
-     *
-     * 15:00 México
-     *
-     * obtenemos:
-     *
-     * date = 2026-08-21
-     * time = 15:00
-     *
-     * independientemente de que el servidor esté en UTC.
-     */
-
-    const date =
-      formatInTimeZone(
-        start,
-        timezone,
-        "yyyy-MM-dd"
-      );
-
-    const time =
-      formatInTimeZone(
-        start,
-        timezone,
-        "HH:mm"
-      );
-
-    /**
-     * =======================================================
-     * LOG
-     * =======================================================
-     */
-
-    console.log(
-      "[PUBLIC BOOKING] Sending appointment:",
-      {
-        ownerName:
-          values.ownerName,
-
-        phone:
-          values.phone,
-
-        email:
-          values.email ?? "",
-
-        petName:
-          values.petName,
-
-        serviceId:
-          values.serviceId,
-
-        startAt:
-          values.startAt,
-
-        timezone,
-
-        convertedDate:
-          date,
-
-        convertedTime:
-          time,
-      }
+    const date = getClinicDate(
+      startAt,
+      timezone
     );
 
-    /**
-     * =======================================================
-     * CREAR CITA
-     * =======================================================
+    /*
+     * Volvemos a consultar disponibilidad inmediatamente
+     * antes de crear.
      */
-
-    const result =
-      await createAppointment({
-        ownerName:
-          values.ownerName,
-
-        phone:
-          values.phone,
-
-        email:
-          values.email ?? "",
-
-        petName:
-          values.petName,
-
-        notes:
-          values.notes ?? "",
-
+    const availability =
+      await getAvailableSlotsAction({
         serviceId:
           values.serviceId,
-
         date,
-
-        time,
-
-        status:
-          "PENDING",
       });
 
-    /**
-     * =======================================================
-     * LOG
-     * =======================================================
-     */
+    if (!availability.success) {
+      return {
+        success: false,
+        message:
+          availability.message ??
+          "No fue posible verificar la disponibilidad.",
+      };
+    }
 
-    console.log(
-      "[PUBLIC BOOKING] createAppointment result:",
-      result
+    const requestedTimestamp =
+      startAt.getTime();
+
+    const stillAvailable =
+      availability.slots.some(
+        (slot) =>
+          new Date(
+            slot
+          ).getTime() ===
+          requestedTimestamp
+      );
+
+    if (!stillAvailable) {
+      return {
+        success: false,
+        message:
+          "Ese horario ya no está disponible. Selecciona otro horario.",
+      };
+    }
+
+    const time = getClinicTime(
+      startAt,
+      timezone
     );
 
-    return result;
+    return createAppointment({
+      ownerName:
+        values.ownerName,
+
+      phone:
+        values.phone,
+
+      email:
+        values.email,
+
+      petName:
+        values.petName,
+
+      serviceId:
+        values.serviceId,
+
+      date,
+
+      time,
+
+      notes:
+        values.notes,
+
+      status:
+        "PENDING",
+    });
   } catch (error) {
     console.error(
-      "[createPublicAppointment] error:",
+      "[createPublicAppointment]",
       error
     );
 
@@ -580,7 +432,7 @@ export async function createPublicAppointment(
       message:
         error instanceof Error
           ? error.message
-          : "No fue posible reservar la cita.",
+          : "No fue posible crear la cita.",
     };
   }
 }

@@ -12,8 +12,11 @@ export async function createService(
 ) {
   return prisma.service.create({
     data: {
-      ...data,
+      name: data.name,
+      description: data.description ?? null,
+      durationMinutes: data.durationMinutes,
       price: new Prisma.Decimal(data.price),
+      color: data.color ?? null,
     },
   });
 }
@@ -28,8 +31,15 @@ export async function updateService(
       id,
     },
     data: {
-      ...service,
-      price: new Prisma.Decimal(service.price),
+      name: service.name,
+      description:
+        service.description ?? null,
+      durationMinutes:
+        service.durationMinutes,
+      price: new Prisma.Decimal(
+        service.price,
+      ),
+      color: service.color ?? null,
     },
   });
 }
@@ -51,22 +61,33 @@ export async function toggleService(
 export async function deleteService(
   id: string,
 ) {
-  const appointments =
-    await prisma.appointment.count({
+  try {
+    return await prisma.service.delete({
       where: {
-        serviceId: id,
+        id,
       },
     });
+  } catch (error) {
+    if (
+      error instanceof
+        Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2003"
+    ) {
+      throw new Error(
+        "No puedes eliminar un servicio que tiene citas registradas. Puedes desactivarlo en su lugar.",
+      );
+    }
 
-  if (appointments > 0) {
-    throw new Error(
-      "No puedes eliminar un servicio que tiene citas registradas."
-    );
+    if (
+      error instanceof
+        Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2025"
+    ) {
+      throw new Error(
+        "El servicio ya no existe.",
+      );
+    }
+
+    throw error;
   }
-
-  return prisma.service.delete({
-    where: {
-      id,
-    },
-  });
 }

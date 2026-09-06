@@ -1,51 +1,107 @@
 import { prisma } from "@/lib/prisma";
-import { serialize } from "@/lib/serialize";
 
 import { Button } from "@/components/ui/button";
 
 import { CreateAppointmentDialog } from "./components/create-appointment-dialog";
 import { AppointmentsTable } from "./components/appointments-table";
 
-import {
+import type {
   ServiceDTO,
   AppointmentDTO,
-} from "@/types/appointment"
+} from "@/types/appointment";
+
+export const dynamic = "force-dynamic";
 
 export default async function CitasPage() {
-  const [
-    rawAppointments,
-    rawServices,
-  ] = await Promise.all([
-    prisma.appointment.findMany({
-      include: {
-        service: true,
-      },
-      orderBy: {
-        startAt: "desc",
-      },
-    }),
+  const [rawAppointments, rawServices] =
+    await Promise.all([
+      prisma.appointment.findMany({
+        include: {
+          service: true,
+        },
 
-    prisma.service.findMany({
-      where: {
-        active: true,
-      },
-      orderBy: {
-        displayOrder: "asc",
-      },
-    }),
-  ]);
+        orderBy: {
+          startAt: "desc",
+        },
+      }),
 
-  const services =
-    serialize<
-      typeof rawServices,
-      ServiceDTO[]
-    >(rawServices);
+      prisma.service.findMany({
+        where: {
+          active: true,
+        },
 
-  const appointments =
-    serialize<
-      typeof rawAppointments,
-      AppointmentDTO[]
-    >(rawAppointments);
+        orderBy: {
+          displayOrder: "asc",
+        },
+      }),
+    ]);
+
+  /*
+   * Service contiene Decimal en price.
+   * No debemos mandar directamente el objeto de Prisma
+   * al Client Component.
+   */
+  const services: ServiceDTO[] = rawServices.map(
+    (service) => ({
+      id: service.id,
+      name: service.name,
+      description: service.description,
+      durationMinutes: service.durationMinutes,
+      price: Number(service.price),
+      active: service.active,
+      displayOrder: service.displayOrder,
+      color: service.color,
+      createdAt: service.createdAt.toISOString(),
+      updatedAt: service.updatedAt.toISOString(),
+    })
+  );
+
+  /*
+   * Las citas también necesitan serialización porque
+   * contienen Decimal y Date.
+   */
+  const appointments: AppointmentDTO[] =
+    rawAppointments.map((appointment) => ({
+      id: appointment.id,
+      googleEventId:
+        appointment.googleEventId,
+
+      serviceId: appointment.serviceId,
+
+      service: {
+        id: appointment.service.id,
+        name: appointment.service.name,
+        description:
+          appointment.service.description,
+        durationMinutes:
+          appointment.service.durationMinutes,
+        price: Number(appointment.service.price),
+        active: appointment.service.active,
+        displayOrder:
+          appointment.service.displayOrder,
+        color: appointment.service.color,
+        createdAt:
+          appointment.service.createdAt.toISOString(),
+        updatedAt:
+          appointment.service.updatedAt.toISOString(),
+      },
+
+      ownerName: appointment.ownerName,
+      phone: appointment.phone,
+      email: appointment.email,
+      petName: appointment.petName,
+
+      startAt: appointment.startAt.toISOString(),
+      endAt: appointment.endAt.toISOString(),
+
+      status: appointment.status,
+      notes: appointment.notes,
+
+      createdAt:
+        appointment.createdAt.toISOString(),
+      updatedAt:
+        appointment.updatedAt.toISOString(),
+    }));
 
   return (
     <div className="space-y-6">
