@@ -36,11 +36,6 @@ export default async function CitasPage() {
       }),
     ]);
 
-  /*
-   * Service contiene Decimal en price.
-   * No debemos mandar directamente el objeto de Prisma
-   * al Client Component.
-   */
   const services: ServiceDTO[] = rawServices.map(
     (service) => ({
       id: service.id,
@@ -111,15 +106,13 @@ export default async function CitasPage() {
             Citas
           </h1>
 
-          <p className="text-sm text-muted-foreground">
-            Administra las citas de la clínica.
-          </p>
         </div>
 
         <CreateAppointmentDialog
           services={services}
         >
-          <Button>
+          <Button 
+          className="bg-cyan-200 text-black hover:bg-black hover:text-cyan-500 focus:ring-cyan-500">
             Nueva cita
           </Button>
         </CreateAppointmentDialog>

@@ -4,6 +4,8 @@ import { FormEvent, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
+
 
 interface LoginFormProps {
   hasInitialAdmin: boolean;
@@ -59,12 +61,19 @@ export default function LoginForm({
   return (
     <main className="flex min-h-screen items-center justify-center px-6">
       <div className="w-full max-w-md">
+       
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold">
-            RemiVet
-          </h1>
+           <Image
+                  src="/RemiLogo.png"
+                  alt="Remi Vet"
+                  width={420}
+                  height={420}
+                  priority
+                  className="h-auto w-[260px] sm:w-[320px] item-center"
+                />
 
-          <p className="mt-2 text-muted-foreground">
+
+          <p className="mt-2  text-gray-400 ">
             Inicia sesión para acceder al panel
           </p>
         </div>
@@ -76,7 +85,7 @@ export default function LoginForm({
           <div className="space-y-2">
             <label
               htmlFor="email"
-              className="text-sm font-medium"
+              className="text-sm text-pink-300 font-medium"
             >
               Email
             </label>
@@ -89,7 +98,7 @@ export default function LoginForm({
               onChange={(event) =>
                 setEmail(event.target.value)
               }
-              placeholder="admin@remivet.com"
+              placeholder="remivet@gmail.com"
               autoComplete="email"
               required
               disabled={loading}
@@ -100,7 +109,7 @@ export default function LoginForm({
           <div className="space-y-2">
             <label
               htmlFor="password"
-              className="text-sm font-medium"
+              className="text-sm text-pink-300 font-medium"
             >
               Contraseña
             </label>
@@ -132,7 +141,7 @@ export default function LoginForm({
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full rounded-md bg-pink-200 px-4 py-2 font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50 hover:bg-black hover:text-pink-400"
           >
             {loading
               ? "Iniciando sesión..."

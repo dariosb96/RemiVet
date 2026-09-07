@@ -218,24 +218,7 @@ export function AppointmentsTable({
                 </Button>
               </EditAppointmentDialog>
 
-              <DeleteAppointmentDialog
-                id={appointment.id}
-              >
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300 dark:hover:bg-amber-950/60"
-                >
-                  Cancelar
-                </Button>
-              </DeleteAppointmentDialog>
-
-              {/* IMPORTANTE:
-                  Este componente YA genera su propio botón.
-                  NO poner un Button dentro.
-              */}
-
+         
               <HardDeleteAppointmentDialog
                 id={appointment.id}
               />
@@ -347,19 +330,6 @@ export function AppointmentsTable({
                   Editar
                 </Button>
               </EditAppointmentDialog>
-
-              <DeleteAppointmentDialog
-                id={appointment.id}
-              >
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="w-full border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300 dark:hover:bg-amber-950/60"
-                >
-                  Cancelar
-                </Button>
-              </DeleteAppointmentDialog>
 
               {/* El dialog genera su propio botón */}
 

@@ -224,7 +224,7 @@ if (bookingCompleted) {
     <main className="mx-auto w-full max-w-2xl px-6 py-10">
 
       <div className="mb-8">
-        <h1 className="text-3xl font-bold">
+        <h1 className="text-3xl font-bold text-green-300">
           Reserva tu cita
         </h1>
 
@@ -240,7 +240,7 @@ if (bookingCompleted) {
         <div className="grid gap-2">
           <label
             htmlFor="service"
-            className="text-sm font-medium"
+            className="text-sm font-medium text-green-200"
           >
             Servicio
           </label>
@@ -279,7 +279,7 @@ if (bookingCompleted) {
 
             <label
               htmlFor="date"
-              className="text-sm font-medium"
+              className="text-sm font-medium text-green-200"
             >
               Fecha
             </label>

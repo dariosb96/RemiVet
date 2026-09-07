@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-
 import { getServerSession } from "next-auth";
-
 import { authOptions } from "@/lib/auth";
+import   {IntroAnimation} from "@/components/layout/intro-animation";
 
 export default async function HomePage() {
   const session = await getServerSession(authOptions);
@@ -24,6 +23,7 @@ export default async function HomePage() {
    */
   return (
     <main className="flex min-h-[calc(100vh-140px)] flex-col">
+      <IntroAnimation />
       <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center justify-center px-6 py-16 text-center">
         <div className="max-w-2xl">
           {/* Logo / icono */}

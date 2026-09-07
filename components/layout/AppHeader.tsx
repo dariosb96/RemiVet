@@ -36,16 +36,7 @@ export function AppHeader({ onMenuClick }: AppHeaderProps) {
       </div>
 
       <div className="flex items-center gap-3">
-        <div className="hidden text-right sm:block">
-          <p className="text-sm font-medium text-foreground">
-            Administrador
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Clínica Veterinaria
-          </p>
-        </div>
-
-        <ThemeToggle />
+               <ThemeToggle />
 
         <Button
           variant="outline"
