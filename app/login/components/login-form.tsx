@@ -59,29 +59,28 @@ export default function LoginForm({
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-6">
-      <div className="w-full max-w-md">
-       
-        <div className="mb-8 text-center">
-           <Image
-                  src="/RemiLogo.png"
-                  alt="Remi Vet"
-                  width={420}
-                  height={420}
-                  priority
-                  className="h-auto w-[260px] sm:w-[320px] item-center"
-                />
+<main className="flex min-h-screen items-center justify-center px-6 pb-24 sm:pb-32">
+  <div className="w-full max-w-md">
 
+    <div className="mb-8 flex flex-col items-center text-center">
+      <Image
+        src="/RemiLogo.png"
+        alt="Remi Vet"
+        width={420}
+        height={420}
+        priority
+        className="mx-auto h-auto w-[260px] sm:w-[320px]"
+      />
 
-          <p className="mt-2  text-gray-400 ">
-            Inicia sesión para acceder 
-          </p>
-        </div>
+      <p className="-mt-6 text-gray-400">
+        Inicia sesión para acceder
+      </p>
+    </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-5"
-        >
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-5"
+    >
           <div className="space-y-2">
             <label
               htmlFor="email"
