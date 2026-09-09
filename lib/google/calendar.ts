@@ -31,6 +31,11 @@ function handleGoogleError(
   throw error;
 }
 
+/*
+ * =========================================================
+ * CREAR EVENTO
+ * =========================================================
+ */
 export async function createCalendarEvent({
   calendarId,
   title,
@@ -77,6 +82,11 @@ export async function createCalendarEvent({
   }
 }
 
+/*
+ * =========================================================
+ * ACTUALIZAR EVENTO
+ * =========================================================
+ */
 export async function updateCalendarEvent({
   calendarId,
   eventId,
@@ -123,6 +133,11 @@ export async function updateCalendarEvent({
   }
 }
 
+/*
+ * =========================================================
+ * ELIMINAR EVENTO
+ * =========================================================
+ */
 export async function deleteCalendarEvent({
   calendarId,
   eventId,
@@ -147,6 +162,11 @@ export async function deleteCalendarEvent({
   }
 }
 
+/*
+ * =========================================================
+ * LISTA DE CALENDARIOS
+ * =========================================================
+ */
 export async function getCalendarList(
   refreshToken: string
 ) {
@@ -178,6 +198,134 @@ export async function getCalendarList(
             item.primary ?? false,
         })) ?? []
     );
+  } catch (error) {
+    handleGoogleError(error);
+  }
+}
+
+/*
+ * =========================================================
+ * OBTENER EVENTOS DE UN CALENDARIO
+ * =========================================================
+ *
+ * Se utiliza para determinar qué horarios ya están ocupados
+ * directamente en Google Calendar.
+ *
+ * timeMin / timeMax deben ser Date reales (UTC internamente).
+ *
+ * singleEvents: true
+ * Permite que eventos recurrentes se expandan correctamente.
+ */
+export interface GoogleCalendarBlockedRange {
+  start: Date;
+  end: Date;
+  eventId: string;
+}
+
+export async function getCalendarEvents({
+  calendarId,
+  refreshToken,
+  timeMin,
+  timeMax,
+}: {
+  calendarId: string;
+  refreshToken: string;
+  timeMin: Date;
+  timeMax: Date;
+}): Promise<GoogleCalendarBlockedRange[]> {
+  const calendar =
+    getAuthenticatedGoogleClient(
+      refreshToken
+    );
+
+  try {
+    const response =
+      await calendar.events.list({
+        calendarId,
+
+        timeMin:
+          timeMin.toISOString(),
+
+        timeMax:
+          timeMax.toISOString(),
+
+        singleEvents: true,
+
+        orderBy: "startTime",
+
+        showDeleted: false,
+      });
+
+    const events =
+      response.data.items ?? [];
+
+    const blockedRanges: GoogleCalendarBlockedRange[] =
+      [];
+
+    for (const event of events) {
+      /*
+       * Eventos eliminados no deben bloquear.
+       */
+      if (
+        event.status ===
+        "cancelled"
+      ) {
+        continue;
+      }
+
+      /*
+       * Los eventos de día completo tienen `date`
+       * en lugar de `dateTime`.
+       *
+       * Para disponibilidad horaria de una clínica,
+       * un evento de día completo debe bloquear todo
+       * el rango que Google proporciona.
+       */
+      const startValue =
+        event.start?.dateTime ??
+        event.start?.date;
+
+      const endValue =
+        event.end?.dateTime ??
+        event.end?.date;
+
+      if (
+        !startValue ||
+        !endValue
+      ) {
+        continue;
+      }
+
+      const start =
+        new Date(startValue);
+
+      const end =
+        new Date(endValue);
+
+      if (
+        Number.isNaN(
+          start.getTime()
+        ) ||
+        Number.isNaN(
+          end.getTime()
+        )
+      ) {
+        continue;
+      }
+
+      if (end <= start) {
+        continue;
+      }
+
+      blockedRanges.push({
+        start,
+        end,
+        eventId:
+          event.id ?? "",
+      });
+    }
+
+    return blockedRanges;
   } catch (error) {
     handleGoogleError(error);
   }

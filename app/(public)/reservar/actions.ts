@@ -1,7 +1,10 @@
 "use server";
 
 import { fromZonedTime } from "date-fns-tz";
-
+import {
+  getCalendarEvents,
+  GoogleReauthRequiredError,
+} from "@/lib/google/calendar";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -140,8 +143,7 @@ export async function getAvailableSlotsAction({
       return {
         success: false,
         slots: [],
-        message:
-          "Debes seleccionar un servicio.",
+        message: "Debes seleccionar un servicio.",
       };
     }
 
@@ -149,8 +151,7 @@ export async function getAvailableSlotsAction({
       return {
         success: false,
         slots: [],
-        message:
-          "La fecha seleccionada no es válida.",
+        message: "La fecha seleccionada no es válida.",
       };
     }
 
@@ -176,6 +177,8 @@ export async function getAvailableSlotsAction({
             appointmentBufferMinutes: true,
             timezone: true,
             businessDays: true,
+            googleRefreshToken: true,
+            googleCalendarId: true,
           },
         }),
       ]);
@@ -184,8 +187,7 @@ export async function getAvailableSlotsAction({
       return {
         success: false,
         slots: [],
-        message:
-          "El servicio no existe.",
+        message: "El servicio no existe.",
       };
     }
 
@@ -207,6 +209,22 @@ export async function getAvailableSlotsAction({
       };
     }
 
+    /*
+     * Sin Google Calendar no podemos garantizar
+     * disponibilidad real.
+     */
+    if (
+      !settings.googleRefreshToken ||
+      !settings.googleCalendarId
+    ) {
+      return {
+        success: false,
+        slots: [],
+        message:
+          "Google Calendar no está conectado. La agenda no está disponible en este momento.",
+      };
+    }
+
     const timezone =
       settings.timezone ||
       "America/Mexico_City";
@@ -221,6 +239,9 @@ export async function getAvailableSlotsAction({
       timezone
     );
 
+    /*
+     * Citas almacenadas localmente.
+     */
     const appointments =
       await prisma.appointment.findMany({
         where: {
@@ -238,11 +259,65 @@ export async function getAvailableSlotsAction({
         },
       });
 
+    /*
+     * Eventos reales de Google Calendar.
+     */
+    let googleBlockedRanges;
+
+    try {
+      googleBlockedRanges =
+        await getCalendarEvents({
+          calendarId:
+            settings.googleCalendarId,
+
+          refreshToken:
+            settings.googleRefreshToken,
+
+          timeMin: dayStart,
+          timeMax: dayEnd,
+        });
+    } catch (error) {
+      if (
+        error instanceof GoogleReauthRequiredError
+      ) {
+        await prisma.settings.updateMany({
+          data: {
+            googleRefreshToken: null,
+            googleCalendarId: null,
+          },
+        });
+
+        return {
+          success: false,
+          slots: [],
+          message:
+            "GOOGLE_REAUTH_REQUIRED",
+        };
+      }
+
+      console.error(
+        "[getAvailableSlotsAction public] Google Calendar error:",
+        error
+      );
+
+      return {
+        success: false,
+        slots: [],
+        message:
+          "No fue posible comprobar la disponibilidad de Google Calendar. Intenta nuevamente.",
+      };
+    }
+
+    /*
+     * PostgreSQL + Google Calendar.
+     */
     const availableSlots =
       getAvailableSlots({
         date,
         timezone,
         appointments,
+        externalBlockedRanges:
+          googleBlockedRanges,
 
         openingTime:
           settings.openingTime,
@@ -263,6 +338,9 @@ export async function getAvailableSlotsAction({
           settings.businessDays,
       });
 
+    /*
+     * Nunca mostramos horarios pasados.
+     */
     const now = new Date();
 
     const slots = availableSlots
