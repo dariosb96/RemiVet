@@ -1,5 +1,4 @@
 "use client";
-
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -11,10 +10,10 @@ import { updateAppointment } from "@/lib/appointments/actions";
 
 import {
   appointmentSchema,
-  AppointmentFormValues,
+  type AppointmentFormValues,
 } from "../schema";
 
-import {
+import type {
   ServiceDTO,
   AppointmentDTO,
 } from "@/types/appointment";
@@ -38,44 +37,32 @@ interface Props {
   children: React.ReactElement;
 }
 
+const TIMEZONE = "America/Mexico_City";
+
 function getClinicDateTime(
   value: string,
   timezone: string
 ) {
   const date = new Date(value);
 
-  const parts = new Intl.DateTimeFormat(
-    "en-GB",
-    {
-      timeZone: timezone,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    }
-  ).formatToParts(date);
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
 
-  const year = parts.find(
-    (part) => part.type === "year"
-  )?.value;
+  const getPart = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value;
 
-  const month = parts.find(
-    (part) => part.type === "month"
-  )?.value;
-
-  const day = parts.find(
-    (part) => part.type === "day"
-  )?.value;
-
-  const hour = parts.find(
-    (part) => part.type === "hour"
-  )?.value;
-
-  const minute = parts.find(
-    (part) => part.type === "minute"
-  )?.value;
+  const year = getPart("year");
+  const month = getPart("month");
+  const day = getPart("day");
+  const hour = getPart("hour");
+  const minute = getPart("minute");
 
   if (
     !year ||
@@ -95,6 +82,33 @@ function getClinicDateTime(
   };
 }
 
+function getAppointmentFormValues(
+  appointment: AppointmentDTO
+): AppointmentFormValues {
+  const clinicDateTime = getClinicDateTime(
+    appointment.startAt,
+    TIMEZONE
+  );
+
+  return {
+    ownerName: appointment.ownerName,
+    phone: appointment.phone,
+    email: appointment.email ?? "",
+    petName: appointment.petName,
+
+    serviceId: appointment.serviceId,
+
+    date: clinicDateTime.date,
+    time: clinicDateTime.time,
+
+    notes: appointment.notes ?? "",
+
+    status:
+      appointment.status ??
+      AppointmentStatus.PENDING,
+  };
+}
+
 export function EditAppointmentDialog({
   appointment,
   services,
@@ -105,53 +119,18 @@ export function EditAppointmentDialog({
   const [pending, startTransition] =
     useTransition();
 
-  const [open, setOpen] =
-    useState(false);
+  const [open, setOpen] = useState(false);
 
-  const form =
-    useForm<AppointmentFormValues>({
-      resolver: zodResolver(
-        appointmentSchema
-      ),
+  const form = useForm<AppointmentFormValues>({
+    resolver: zodResolver(
+      appointmentSchema
+    ),
 
-      defaultValues: {
-        ownerName:
-          appointment.ownerName,
+    defaultValues:
+      getAppointmentFormValues(appointment),
 
-        phone:
-          appointment.phone,
-
-        email:
-          appointment.email ?? "",
-
-        petName:
-          appointment.petName,
-
-        serviceId:
-          appointment.serviceId,
-
-        date:
-          getClinicDateTime(
-            appointment.startAt,
-            "America/Mexico_City"
-          ).date,
-
-        time:
-          getClinicDateTime(
-            appointment.startAt,
-            "America/Mexico_City"
-          ).time,
-
-        notes:
-          appointment.notes ?? "",
-
-        status:
-          appointment.status ??
-          AppointmentStatus.PENDING,
-      },
-
-      mode: "onChange",
-    });
+    mode: "onChange",
+  });
 
   function handleOpenChange(
     nextOpen: boolean
@@ -159,41 +138,18 @@ export function EditAppointmentDialog({
     setOpen(nextOpen);
 
     if (nextOpen) {
-      const clinicDateTime =
-        getClinicDateTime(
-          appointment.startAt,
-          "America/Mexico_City"
-        );
-
-      form.reset({
-        ownerName:
-          appointment.ownerName,
-
-        phone:
-          appointment.phone,
-
-        email:
-          appointment.email ?? "",
-
-        petName:
-          appointment.petName,
-
-        serviceId:
-          appointment.serviceId,
-
-        date:
-          clinicDateTime.date,
-
-        time:
-          clinicDateTime.time,
-
-        notes:
-          appointment.notes ?? "",
-
-        status:
-          appointment.status ??
-          AppointmentStatus.PENDING,
-      });
+      /*
+       * Cada vez que abrimos el diálogo volvemos a
+       * cargar TODOS los datos actuales de la cita.
+       *
+       * Esto garantiza que la hora actual también
+       * aparezca en el formulario.
+       */
+      form.reset(
+        getAppointmentFormValues(
+          appointment
+        )
+      );
     }
   }
 
@@ -201,47 +157,68 @@ export function EditAppointmentDialog({
     values: AppointmentFormValues
   ) {
     startTransition(async () => {
-      const originalDateTime =
-        getClinicDateTime(
-          appointment.startAt,
-          "America/Mexico_City"
+      try {
+        /*
+         * Si por cualquier motivo el campo de hora
+         * llegara vacío, conservamos la hora original.
+         *
+         * Esto funciona como protección adicional,
+         * pero el formulario ya debe traer la hora
+         * correctamente cargada.
+         */
+        const originalDateTime =
+          getClinicDateTime(
+            appointment.startAt,
+            TIMEZONE
+          );
+
+        const valuesToUpdate: AppointmentFormValues =
+          {
+            ...values,
+
+            date:
+              values.date ||
+              originalDateTime.date,
+
+            time:
+              values.time ||
+              originalDateTime.time,
+          };
+
+        const result =
+          await updateAppointment(
+            appointment.id,
+            valuesToUpdate
+          );
+
+        if (!result.success) {
+          toast.error(
+            result.message ??
+              "No fue posible actualizar la cita."
+          );
+
+          return;
+        }
+
+        router.refresh();
+
+        toast.success(
+          "Cita actualizada correctamente."
         );
 
-      const valuesToUpdate: AppointmentFormValues =
-        {
-          ...values,
-
-          date:
-            values.date ||
-            originalDateTime.date,
-
-          time:
-            values.time ||
-            originalDateTime.time,
-        };
-
-      const result =
-        await updateAppointment(
-          appointment.id,
-          valuesToUpdate
+        setOpen(false);
+      } catch (error) {
+        console.error(
+          "[EditAppointmentDialog]",
+          error
         );
 
-      if (!result.success) {
         toast.error(
-          result.message ??
-            "No fue posible actualizar la cita."
+          error instanceof Error
+            ? error.message
+            : "No fue posible actualizar la cita."
         );
-
-        return;
       }
-
-      router.refresh();
-
-      toast.success(
-        "Cita actualizada correctamente."
-      );
-
-      setOpen(false);
     });
   }
 
@@ -250,9 +227,7 @@ export function EditAppointmentDialog({
       open={open}
       onOpenChange={handleOpenChange}
     >
-      <DialogTrigger
-        render={children}
-      />
+      <DialogTrigger render={children} />
 
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
@@ -273,6 +248,7 @@ export function EditAppointmentDialog({
             excludeAppointmentId={
               appointment.id
             }
+            showStatus={true}
           />
 
           <DialogFooter>

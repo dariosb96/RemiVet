@@ -74,7 +74,7 @@ export default function LoginForm({
 
 
           <p className="mt-2  text-gray-400 ">
-            Inicia sesión para acceder al panel
+            Inicia sesión para acceder 
           </p>
         </div>
 

@@ -34,9 +34,11 @@ interface Props {
   showStatus?: boolean;
 }
 
+const TIMEZONE = "America/Mexico_City";
+
 function formatSlotTime(slot: string): string {
   return new Intl.DateTimeFormat("es-MX", {
-    timeZone: "America/Mexico_City",
+    timeZone: TIMEZONE,
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
@@ -71,9 +73,19 @@ export function AppointmentForm({
     name: "time",
   });
 
+  /*
+   * Si existe excludeAppointmentId estamos editando
+   * una cita existente.
+   */
+  const isEditing = Boolean(
+    excludeAppointmentId
+  );
+
   const [slots, setSlots] = useState<string[]>([]);
-  const [loadingSlots, setLoadingSlots] = useState(false);
-  const [slotsError, setSlotsError] = useState<string | null>(null);
+  const [loadingSlots, setLoadingSlots] =
+    useState(false);
+  const [slotsError, setSlotsError] =
+    useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -83,9 +95,17 @@ export function AppointmentForm({
         setSlots([]);
         setSlotsError(null);
 
-        setValue("time", "", {
-          shouldValidate: true,
-        });
+        /*
+         * Al crear una cita sí queremos limpiar la hora
+         * cuando todavía no hay servicio/fecha.
+         *
+         * Al editar no tocamos el valor existente.
+         */
+        if (!isEditing) {
+          setValue("time", "", {
+            shouldValidate: true,
+          });
+        }
 
         return;
       }
@@ -93,16 +113,22 @@ export function AppointmentForm({
       setLoadingSlots(true);
       setSlotsError(null);
 
-      setValue("time", "", {
-        shouldValidate: true,
-      });
+      /*
+       * IMPORTANTE:
+       *
+       * Ya NO limpiamos "time" aquí automáticamente.
+       *
+       * Esto permite que una cita existente conserve
+       * su horario mientras se cargan sus slots.
+       */
 
       try {
-        const result = await getAvailableSlotsAction({
-          serviceId,
-          date,
-          excludeAppointmentId,
-        });
+        const result =
+          await getAvailableSlotsAction({
+            serviceId,
+            date,
+            excludeAppointmentId,
+          });
 
         if (cancelled) {
           return;
@@ -110,9 +136,16 @@ export function AppointmentForm({
 
         if (!result.success) {
           setSlots([]);
-          setValue("time", "", {
-            shouldValidate: true,
-          });
+
+          /*
+           * Durante edición conservamos la hora actual.
+           * Durante creación sí la limpiamos.
+           */
+          if (!isEditing) {
+            setValue("time", "", {
+              shouldValidate: true,
+            });
+          }
 
           setSlotsError(
             result.message ??
@@ -122,12 +155,60 @@ export function AppointmentForm({
           return;
         }
 
-        setSlots(result.slots);
+        let availableSlots =
+          result.slots;
 
-        if (result.slots.length === 0) {
-          setValue("time", "", {
-            shouldValidate: true,
-          });
+        /*
+         * -------------------------------------------------
+         * EDICIÓN
+         * -------------------------------------------------
+         *
+         * La propia cita está excluida de los conflictos
+         * gracias a excludeAppointmentId.
+         *
+         * Sin embargo, dependiendo de cómo genere los slots
+         * availability.ts, el horario actual podría no formar
+         * parte del array.
+         *
+         * Si el formulario ya tiene una hora y no está en
+         * los horarios devueltos, la agregamos únicamente
+         * durante edición.
+         */
+        if (
+          isEditing &&
+          time &&
+          !availableSlots.some(
+            (slot) =>
+              formatSlotTime(slot) ===
+              time
+          )
+        ) {
+          /*
+           * Creamos una representación local del horario
+           * actual únicamente para mostrarlo en el select.
+           *
+           * No altera la disponibilidad real.
+           */
+          availableSlots = [
+            `LOCAL_CURRENT_TIME:${time}`,
+            ...availableSlots,
+          ];
+        }
+
+        setSlots(availableSlots);
+
+        if (
+          availableSlots.length === 0
+        ) {
+          /*
+           * Si estamos editando y ya tenemos una hora,
+           * no la eliminamos.
+           */
+          if (!isEditing) {
+            setValue("time", "", {
+              shouldValidate: true,
+            });
+          }
 
           setSlotsError(
             "No hay horarios disponibles para esta fecha."
@@ -146,9 +227,12 @@ export function AppointmentForm({
         );
 
         setSlots([]);
-        setValue("time", "", {
-          shouldValidate: true,
-        });
+
+        if (!isEditing) {
+          setValue("time", "", {
+            shouldValidate: true,
+          });
+        }
 
         setSlotsError(
           "No fue posible cargar los horarios disponibles."
@@ -169,7 +253,9 @@ export function AppointmentForm({
     serviceId,
     date,
     excludeAppointmentId,
+    isEditing,
     setValue,
+    time,
   ]);
 
   return (
@@ -263,20 +349,31 @@ export function AppointmentForm({
           id="serviceId"
           value={serviceId ?? ""}
           onChange={(event) => {
-            const value = event.target.value;
+            const value =
+              event.target.value;
 
-            setValue("serviceId", value, {
-              shouldDirty: true,
-              shouldTouch: true,
-              shouldValidate: true,
-            });
+            setValue(
+              "serviceId",
+              value,
+              {
+                shouldDirty: true,
+                shouldTouch: true,
+                shouldValidate: true,
+              }
+            );
 
+            /*
+             * Si el usuario cambia manualmente
+             * el servicio, ahora SÍ debemos limpiar
+             * la hora porque puede haber cambiado
+             * la duración/disponibilidad.
+             */
             setValue("time", "", {
               shouldDirty: true,
               shouldValidate: true,
             });
           }}
-          className="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+          className="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           <option value="">
             Selecciona un servicio
@@ -321,7 +418,7 @@ export function AppointmentForm({
 
         <div className="space-y-2">
           <Label htmlFor="time">
-            Horario disponible
+            Horario
           </Label>
 
           <select
@@ -334,13 +431,18 @@ export function AppointmentForm({
               slots.length === 0
             }
             onChange={(event) => {
-              const value = event.target.value;
+              const value =
+                event.target.value;
 
-              setValue("time", value, {
-                shouldDirty: true,
-                shouldTouch: true,
-                shouldValidate: true,
-              });
+              setValue(
+                "time",
+                value,
+                {
+                  shouldDirty: true,
+                  shouldTouch: true,
+                  shouldValidate: true,
+                }
+              );
             }}
             className="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -357,14 +459,32 @@ export function AppointmentForm({
             </option>
 
             {slots.map((slot) => {
-              const time = formatSlotTime(slot);
+              /*
+               * El slot especial de edición solamente
+               * contiene la hora local, no una fecha ISO.
+               */
+              const isCurrentAppointmentSlot =
+                slot.startsWith(
+                  "LOCAL_CURRENT_TIME:"
+                );
+
+              const slotTime =
+                isCurrentAppointmentSlot
+                  ? slot.replace(
+                      "LOCAL_CURRENT_TIME:",
+                      ""
+                    )
+                  : formatSlotTime(slot);
 
               return (
                 <option
                   key={slot}
-                  value={time}
+                  value={slotTime}
                 >
-                  {time}
+                  {slotTime}
+                  {isCurrentAppointmentSlot
+                    ? " (actual)"
+                    : ""}
                 </option>
               );
             })}
@@ -407,7 +527,9 @@ export function AppointmentForm({
             render={({ field }) => (
               <Select
                 value={field.value}
-                onValueChange={field.onChange}
+                onValueChange={
+                  field.onChange
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -415,25 +537,33 @@ export function AppointmentForm({
 
                 <SelectContent>
                   <SelectItem
-                    value={AppointmentStatus.PENDING}
+                    value={
+                      AppointmentStatus.PENDING
+                    }
                   >
                     Pendiente
                   </SelectItem>
 
                   <SelectItem
-                    value={AppointmentStatus.CONFIRMED}
+                    value={
+                      AppointmentStatus.CONFIRMED
+                    }
                   >
                     Confirmada
                   </SelectItem>
 
                   <SelectItem
-                    value={AppointmentStatus.COMPLETED}
+                    value={
+                      AppointmentStatus.COMPLETED
+                    }
                   >
                     Completada
                   </SelectItem>
 
                   <SelectItem
-                    value={AppointmentStatus.CANCELLED}
+                    value={
+                      AppointmentStatus.CANCELLED
+                    }
                   >
                     Cancelada
                   </SelectItem>
