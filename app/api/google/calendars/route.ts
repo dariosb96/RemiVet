@@ -2,6 +2,11 @@ import {
   NextResponse,
 } from "next/server";
 
+import {
+  getServerSession,
+} from "next-auth";
+
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -13,6 +18,21 @@ import {
 } from "@/lib/google/errors";
 
 export async function GET() {
+  const session =
+    await getServerSession(
+      authOptions
+    );
+
+  if (!session?.user?.id) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "No autorizado.",
+      },
+      { status: 401 }
+    );
+  }
+
   try {
     const settings =
       await prisma.settings.findFirst();
@@ -61,23 +81,17 @@ export async function GET() {
           },
 
           data: {
-            googleRefreshToken:
-              null,
-
-            googleCalendarId:
-              null,
+            googleRefreshToken: null,
+            googleCalendarId: null,
           },
         });
 
         return NextResponse.json(
           {
             success: false,
-
             connected: false,
-
             code:
               "GOOGLE_REAUTH_REQUIRED",
-
             error:
               "La conexión con Google Calendar expiró o fue revocada. Es necesario volver a conectar Google Calendar.",
           },
@@ -96,7 +110,6 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
-
         error:
           "No fue posible obtener los calendarios.",
       },

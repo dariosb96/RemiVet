@@ -1,5 +1,8 @@
 "use server";
 
+import { getServerSession } from "next-auth";
+
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -20,6 +23,15 @@ export interface AppointmentActionResult {
   message?: string;
   appointmentId?: string;
   googleConnected?: boolean;
+}
+
+async function requireAuth() {
+  const session =
+    await getServerSession(authOptions);
+
+  if (!session?.user?.id) {
+    throw new Error("UNAUTHORIZED");
+  }
 }
 
 async function getGoogleSettings() {
@@ -97,17 +109,6 @@ export async function createAppointment(
   values: unknown
 ): Promise<AppointmentActionResult> {
   try {
-    /*
-     * prepareAppointment hace:
-     *
-     * - validación del servicio
-     * - validación del horario
-     * - PostgreSQL
-     * - Google Calendar
-     * - horario laboral
-     * - buffer
-     * - conflictos
-     */
     const prepared = await prepareAppointment(
       values as Parameters<
         typeof prepareAppointment
@@ -288,22 +289,6 @@ export async function createAppointment(
       error
     );
 
-    /*
-     * prepareAppointment puede lanzar este error
-     * cuando Google necesita reautenticación.
-     */
-    if (
-      error instanceof Error &&
-      error.message === "GOOGLE_REAUTH_REQUIRED"
-    ) {
-      return {
-        success: false,
-        googleConnected: false,
-        message:
-          "La conexión con Google Calendar expiró o fue revocada. Vuelve a conectar Google Calendar.",
-      };
-    }
-
     return {
       success: false,
       message:
@@ -323,6 +308,8 @@ export async function updateAppointment(
   values: unknown
 ): Promise<AppointmentActionResult> {
   try {
+    await requireAuth();
+
     if (!id) {
       return {
         success: false,
@@ -591,19 +578,6 @@ export async function updateAppointment(
       error
     );
 
-    if (
-      error instanceof Error &&
-      error.message === "GOOGLE_REAUTH_REQUIRED"
-    ) {
-      return {
-        success: false,
-        appointmentId: id,
-        googleConnected: false,
-        message:
-          "La conexión con Google Calendar expiró o fue revocada. Vuelve a conectar Google Calendar.",
-      };
-    }
-
     return {
       success: false,
       message:
@@ -622,6 +596,8 @@ export async function deleteAppointment(
   id: string
 ): Promise<AppointmentActionResult> {
   try {
+    await requireAuth();
+
     if (!id) {
       return {
         success: false,
@@ -744,6 +720,17 @@ export async function deleteAppointment(
       error
     );
 
+    if (
+      error instanceof Error &&
+      error.message === "UNAUTHORIZED"
+    ) {
+      return {
+        success: false,
+        message:
+          "No autorizado.",
+      };
+    }
+
     return {
       success: false,
       message:
@@ -762,6 +749,8 @@ export async function hardDeleteAppointment(
   id: string
 ): Promise<AppointmentActionResult> {
   try {
+    await requireAuth();
+
     if (!id) {
       return {
         success: false,
@@ -866,6 +855,17 @@ export async function hardDeleteAppointment(
       "[hardDeleteAppointment]",
       error
     );
+
+    if (
+      error instanceof Error &&
+      error.message === "UNAUTHORIZED"
+    ) {
+      return {
+        success: false,
+        message:
+          "No autorizado.",
+      };
+    }
 
     return {
       success: false,

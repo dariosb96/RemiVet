@@ -1,12 +1,38 @@
-import { NextRequest, NextResponse } from "next/server";
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
 
+import {
+  getServerSession,
+} from "next-auth";
+
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
+export async function POST(
+  request: NextRequest
+) {
+  const session =
+    await getServerSession(
+      authOptions
+    );
 
-    const calendarId = body.calendarId;
+  if (!session?.user?.id) {
+    return NextResponse.json(
+      {
+        error: "No autorizado.",
+      },
+      { status: 401 }
+    );
+  }
+
+  try {
+    const body =
+      await request.json();
+
+    const calendarId =
+      body.calendarId;
 
     if (
       typeof calendarId !== "string" ||
@@ -14,7 +40,8 @@ export async function POST(request: NextRequest) {
     ) {
       return NextResponse.json(
         {
-          error: "Calendar ID inválido.",
+          error:
+            "Calendar ID inválido.",
         },
         { status: 400 }
       );
@@ -37,14 +64,17 @@ export async function POST(request: NextRequest) {
       where: {
         id: settings.id,
       },
+
       data: {
-        googleCalendarId: calendarId,
+        googleCalendarId:
+          calendarId.trim(),
       },
     });
 
     return NextResponse.json({
       success: true,
-      calendarId,
+      calendarId:
+        calendarId.trim(),
     });
   } catch (error) {
     console.error(
