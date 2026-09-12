@@ -8,6 +8,10 @@ import {
   BusinessDaysSettings,
 } from "./components/business-days-settings";
 
+import {
+  ChangePasswordSettings,
+} from "./components/change-password";
+
 export const dynamic = "force-dynamic";
 
 export default async function ConfigurationPage() {
@@ -51,6 +55,8 @@ export default async function ConfigurationPage() {
           null
         }
       />
+
+      <ChangePasswordSettings />
     </div>
   );
 }

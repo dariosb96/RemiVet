@@ -1,14 +1,22 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
 
-import {
-  getGoogleAuthUrl,
-} from "@/lib/google/auth";
+import { authOptions } from "@/lib/auth";
+import { getGoogleAuthUrl } from "@/lib/google/auth";
 
 export async function GET() {
-  const authUrl =
-    getGoogleAuthUrl();
+  const session = await getServerSession(authOptions);
 
-  return NextResponse.redirect(
-    authUrl
-  );
+  if (!session?.user?.id) {
+    return NextResponse.json(
+      {
+        error: "No autorizado.",
+      },
+      { status: 401 }
+    );
+  }
+
+  const authUrl = getGoogleAuthUrl();
+
+  return NextResponse.redirect(authUrl);
 }

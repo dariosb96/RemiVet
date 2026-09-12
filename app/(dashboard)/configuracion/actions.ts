@@ -1,5 +1,8 @@
 "use server";
 
+import { getServerSession } from "next-auth";
+import bcrypt from "bcryptjs";
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -9,6 +12,21 @@ import {
 import {
   isGoogleInvalidGrant,
 } from "@/lib/google/errors";
+
+/*
+ * =========================================================
+ * AUTH
+ * =========================================================
+ */
+
+async function requireAuth() {
+  const session =
+    await getServerSession(authOptions);
+
+  if (!session?.user?.id) {
+    throw new Error("UNAUTHORIZED");
+  }
+}
 
 /*
  * =========================================================
@@ -74,80 +92,108 @@ export async function getGoogleCalendarsAction(): Promise<
       code?: string;
     }
 > {
-  const settings =
-    await prisma.settings.findFirst();
-
-  if (!settings) {
-    return {
-      success: false,
-      calendars: [],
-      error:
-        "No existe la configuración de la clínica.",
-    };
-  }
-
-  if (!settings.googleRefreshToken) {
-    return {
-      success: false,
-      calendars: [],
-      error:
-        "Google Calendar no está conectado.",
-      code:
-        "GOOGLE_REAUTH_REQUIRED",
-    };
-  }
-
   try {
-    const calendars =
-      await getCalendarList(
-        settings.googleRefreshToken
+    await requireAuth();
+
+    const settings =
+      await prisma.settings.findFirst();
+
+    if (!settings) {
+      return {
+        success: false,
+        calendars: [],
+        error:
+          "No existe la configuración de la clínica.",
+      };
+    }
+
+    if (!settings.googleRefreshToken) {
+      return {
+        success: false,
+        calendars: [],
+        error:
+          "Google Calendar no está conectado.",
+        code:
+          "GOOGLE_REAUTH_REQUIRED",
+      };
+    }
+
+    try {
+      const calendars =
+        await getCalendarList(
+          settings.googleRefreshToken
+        );
+
+      return {
+        success: true,
+        calendars,
+      };
+    } catch (error) {
+      console.error(
+        "[getGoogleCalendarsAction] error:",
+        error
       );
 
-    return {
-      success: true,
-      calendars,
-    };
-  } catch (error) {
-    console.error(
-      "[getGoogleCalendarsAction] error:",
-      error
-    );
+      if (
+        isGoogleInvalidGrant(error)
+      ) {
+        await prisma.settings.update({
+          where: {
+            id: settings.id,
+          },
 
-    if (
-      isGoogleInvalidGrant(error)
-    ) {
-      await prisma.settings.update({
-        where: {
-          id: settings.id,
-        },
+          data: {
+            googleRefreshToken:
+              null,
 
-        data: {
-          googleRefreshToken:
-            null,
+            googleCalendarId:
+              null,
+          },
+        });
 
-          googleCalendarId:
-            null,
-        },
-      });
+        return {
+          success: false,
+
+          calendars: [],
+
+          code:
+            "GOOGLE_REAUTH_REQUIRED",
+
+          error:
+            "La conexión con Google Calendar expiró o fue revocada. Vuelve a conectar Google Calendar.",
+        };
+      }
 
       return {
         success: false,
 
         calendars: [],
 
-        code:
-          "GOOGLE_REAUTH_REQUIRED",
-
         error:
-          "La conexión con Google Calendar expiró o fue revocada. Vuelve a conectar Google Calendar.",
+          "No fue posible obtener los calendarios.",
+      };
+    }
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "UNAUTHORIZED"
+    ) {
+      return {
+        success: false,
+        calendars: [],
+        error:
+          "No autorizado.",
       };
     }
 
+    console.error(
+      "[getGoogleCalendarsAction] error:",
+      error
+    );
+
     return {
       success: false,
-
       calendars: [],
-
       error:
         "No fue posible obtener los calendarios.",
     };
@@ -166,87 +212,113 @@ export async function selectGoogleCalendarAction(
   GoogleActionSuccess |
   GoogleActionError
 > {
-  if (!calendarId.trim()) {
-    return {
-      success: false,
-      error:
-        "Selecciona un calendario.",
-    };
-  }
-
-  const settings =
-    await prisma.settings.findFirst();
-
-  if (!settings) {
-    return {
-      success: false,
-      error:
-        "No existe la configuración de la clínica.",
-    };
-  }
-
-  if (!settings.googleRefreshToken) {
-    return {
-      success: false,
-      error:
-        "Google Calendar no está conectado.",
-      code:
-        "GOOGLE_REAUTH_REQUIRED",
-    };
-  }
-
   try {
-    await prisma.settings.update({
-      where: {
-        id: settings.id,
-      },
+    await requireAuth();
 
-      data: {
-        googleCalendarId:
-          calendarId,
-      },
-    });
+    if (!calendarId.trim()) {
+      return {
+        success: false,
+        error:
+          "Selecciona un calendario.",
+      };
+    }
 
-    return {
-      success: true,
-    };
-  } catch (error) {
-    console.error(
-      "[selectGoogleCalendarAction] error:",
-      error
-    );
+    const settings =
+      await prisma.settings.findFirst();
 
-    if (
-      isGoogleInvalidGrant(error)
-    ) {
+    if (!settings) {
+      return {
+        success: false,
+        error:
+          "No existe la configuración de la clínica.",
+      };
+    }
+
+    if (!settings.googleRefreshToken) {
+      return {
+        success: false,
+        error:
+          "Google Calendar no está conectado.",
+        code:
+          "GOOGLE_REAUTH_REQUIRED",
+      };
+    }
+
+    try {
       await prisma.settings.update({
         where: {
           id: settings.id,
         },
 
         data: {
-          googleRefreshToken:
-            null,
-
           googleCalendarId:
-            null,
+            calendarId,
         },
       });
 
       return {
+        success: true,
+      };
+    } catch (error) {
+      console.error(
+        "[selectGoogleCalendarAction] error:",
+        error
+      );
+
+      if (
+        isGoogleInvalidGrant(error)
+      ) {
+        await prisma.settings.update({
+          where: {
+            id: settings.id,
+          },
+
+          data: {
+            googleRefreshToken:
+              null,
+
+            googleCalendarId:
+              null,
+          },
+        });
+
+        return {
+          success: false,
+
+          code:
+            "GOOGLE_REAUTH_REQUIRED",
+
+          error:
+            "La conexión con Google Calendar expiró o fue revocada. Vuelve a conectar Google Calendar.",
+        };
+      }
+
+      return {
         success: false,
 
-        code:
-          "GOOGLE_REAUTH_REQUIRED",
-
         error:
-          "La conexión con Google Calendar expiró o fue revocada. Vuelve a conectar Google Calendar.",
+          "No fue posible guardar el calendario.",
+      };
+    }
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "UNAUTHORIZED"
+    ) {
+      return {
+        success: false,
+        error:
+          "No autorizado.",
       };
     }
 
+    console.error(
+      "[selectGoogleCalendarAction] error:",
+      error
+    );
+
     return {
       success: false,
-
       error:
         "No fue posible guardar el calendario.",
     };
@@ -257,18 +329,6 @@ export async function selectGoogleCalendarAction(
  * =========================================================
  * GUARDAR DÍAS DE ATENCIÓN
  * =========================================================
- *
- * Recibe los 7 días:
- *
- * 0 = Domingo
- * 1 = Lunes
- * 2 = Martes
- * 3 = Miércoles
- * 4 = Jueves
- * 5 = Viernes
- * 6 = Sábado
- *
- * Conservamos las excepciones existentes.
  */
 
 export async function updateWeeklyScheduleAction(
@@ -279,18 +339,20 @@ export async function updateWeeklyScheduleAction(
     }
   >
 ) {
-  const settings =
-    await prisma.settings.findFirst();
-
-  if (!settings) {
-    return {
-      success: false,
-      message:
-        "No existe la configuración de la clínica.",
-    };
-  }
-
   try {
+    await requireAuth();
+
+    const settings =
+      await prisma.settings.findFirst();
+
+    if (!settings) {
+      return {
+        success: false,
+        message:
+          "No existe la configuración de la clínica.",
+      };
+    }
+
     const currentBusinessDays =
       settings.businessDays;
 
@@ -368,6 +430,17 @@ export async function updateWeeklyScheduleAction(
         "Días de atención guardados correctamente.",
     };
   } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "UNAUTHORIZED"
+    ) {
+      return {
+        success: false,
+        message:
+          "No autorizado.",
+      };
+    }
+
     console.error(
       "[updateWeeklyScheduleAction] error:",
       error
@@ -385,67 +458,59 @@ export async function updateWeeklyScheduleAction(
  * =========================================================
  * CERRAR PERÍODO
  * =========================================================
- *
- * Genera una excepción para cada fecha entre startDate
- * y endDate.
- *
- * Ejemplo:
- *
- * 2026-08-28 → cerrado
- * 2026-08-29 → cerrado
- * 2026-08-30 → cerrado
- * ...
  */
 
 export async function closeDateRangeAction(
   startDate: string,
   endDate: string
 ) {
-  if (!startDate || !endDate) {
-    return {
-      success: false,
-      message:
-        "Selecciona una fecha de inicio y una fecha de fin.",
-    };
-  }
-
-  const start =
-    new Date(`${startDate}T00:00:00`);
-
-  const end =
-    new Date(`${endDate}T00:00:00`);
-
-  if (
-    Number.isNaN(start.getTime()) ||
-    Number.isNaN(end.getTime())
-  ) {
-    return {
-      success: false,
-      message:
-        "Las fechas seleccionadas no son válidas.",
-    };
-  }
-
-  if (start > end) {
-    return {
-      success: false,
-      message:
-        "La fecha de inicio no puede ser posterior a la fecha de fin.",
-    };
-  }
-
-  const settings =
-    await prisma.settings.findFirst();
-
-  if (!settings) {
-    return {
-      success: false,
-      message:
-        "No existe la configuración de la clínica.",
-    };
-  }
-
   try {
+    await requireAuth();
+
+    if (!startDate || !endDate) {
+      return {
+        success: false,
+        message:
+          "Selecciona una fecha de inicio y una fecha de fin.",
+      };
+    }
+
+    const start =
+      new Date(`${startDate}T00:00:00`);
+
+    const end =
+      new Date(`${endDate}T00:00:00`);
+
+    if (
+      Number.isNaN(start.getTime()) ||
+      Number.isNaN(end.getTime())
+    ) {
+      return {
+        success: false,
+        message:
+          "Las fechas seleccionadas no son válidas.",
+      };
+    }
+
+    if (start > end) {
+      return {
+        success: false,
+        message:
+          "La fecha de inicio no puede ser posterior a la fecha de fin.",
+      };
+    }
+
+    const settings =
+      await prisma.settings.findFirst();
+
+    if (!settings) {
+      return {
+        success: false,
+        message:
+          "No existe la configuración de la clínica.",
+      };
+    }
+
     const currentBusinessDays =
       settings.businessDays;
 
@@ -509,6 +574,17 @@ export async function closeDateRangeAction(
         "Período cerrado correctamente.",
     };
   } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "UNAUTHORIZED"
+    ) {
+      return {
+        success: false,
+        message:
+          "No autorizado.",
+      };
+    }
+
     console.error(
       "[closeDateRangeAction] error:",
       error
@@ -526,33 +602,33 @@ export async function closeDateRangeAction(
  * =========================================================
  * ABRIR FECHA ESPECÍFICA
  * =========================================================
- *
- * Esto nos permite eliminar un cierre temporal.
  */
 
 export async function reopenDateAction(
   date: string
 ) {
-  if (!date) {
-    return {
-      success: false,
-      message:
-        "Selecciona una fecha.",
-    };
-  }
-
-  const settings =
-    await prisma.settings.findFirst();
-
-  if (!settings) {
-    return {
-      success: false,
-      message:
-        "No existe la configuración de la clínica.",
-    };
-  }
-
   try {
+    await requireAuth();
+
+    if (!date) {
+      return {
+        success: false,
+        message:
+          "Selecciona una fecha.",
+      };
+    }
+
+    const settings =
+      await prisma.settings.findFirst();
+
+    if (!settings) {
+      return {
+        success: false,
+        message:
+          "No existe la configuración de la clínica.",
+      };
+    }
+
     const currentBusinessDays =
       settings.businessDays;
 
@@ -595,6 +671,17 @@ export async function reopenDateAction(
         "Fecha reabierta correctamente.",
     };
   } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "UNAUTHORIZED"
+    ) {
+      return {
+        success: false,
+        message:
+          "No autorizado.",
+      };
+    }
+
     console.error(
       "[reopenDateAction] error:",
       error
@@ -604,6 +691,129 @@ export async function reopenDateAction(
       success: false,
       message:
         "No fue posible reabrir la fecha.",
+    };
+  }
+}
+
+export async function changePasswordAction(
+  currentPassword: string,
+  newPassword: string,
+  confirmPassword: string
+) {
+  try {
+    const session =
+      await getServerSession(authOptions);
+
+    if (!session?.user?.id) {
+      return {
+        success: false,
+        message: "No autorizado.",
+      };
+    }
+
+    if (
+      !currentPassword ||
+      !newPassword ||
+      !confirmPassword
+    ) {
+      return {
+        success: false,
+        message:
+          "Completa todos los campos.",
+      };
+    }
+
+    if (newPassword !== confirmPassword) {
+      return {
+        success: false,
+        message:
+          "Las nuevas contraseñas no coinciden.",
+      };
+    }
+
+    if (newPassword.length < 8) {
+      return {
+        success: false,
+        message:
+          "La nueva contraseña debe tener al menos 8 caracteres.",
+      };
+    }
+
+    if (
+      currentPassword === newPassword
+    ) {
+      return {
+        success: false,
+        message:
+          "La nueva contraseña debe ser diferente a la actual.",
+      };
+    }
+
+    const user =
+      await prisma.user.findUnique({
+        where: {
+          id: session.user.id,
+        },
+
+        select: {
+          id: true,
+          passwordHash: true,
+        },
+      });
+
+    if (!user) {
+      return {
+        success: false,
+        message:
+          "El usuario no existe.",
+      };
+    }
+
+    const currentPasswordValid =
+      await bcrypt.compare(
+        currentPassword,
+        user.passwordHash
+      );
+
+    if (!currentPasswordValid) {
+      return {
+        success: false,
+        message:
+          "La contraseña actual es incorrecta.",
+      };
+    }
+
+    const passwordHash =
+      await bcrypt.hash(
+        newPassword,
+        12
+      );
+
+    await prisma.user.update({
+      where: {
+        id: user.id,
+      },
+
+      data: {
+        passwordHash,
+      },
+    });
+
+    return {
+      success: true,
+      message:
+        "Contraseña actualizada correctamente.",
+    };
+  } catch (error) {
+    console.error(
+      "[changePasswordAction] error:",
+      error
+    );
+
+    return {
+      success: false,
+      message:
+        "No fue posible cambiar la contraseña.",
     };
   }
 }
