@@ -92,15 +92,6 @@ function buildCalendarEventData(appointment: {
   };
 }
 
-function isGoogleReauthError(
-  error: unknown
-): boolean {
-  return (
-    error instanceof GoogleReauthRequiredError ||
-    isGoogleInvalidGrant(error)
-  );
-}
-
 /* =========================================================
    CREATE
 ========================================================= */
@@ -109,6 +100,8 @@ export async function createAppointment(
   values: unknown
 ): Promise<AppointmentActionResult> {
   try {
+    await requireAuth();
+
     const prepared = await prepareAppointment(
       values as Parameters<
         typeof prepareAppointment
@@ -116,67 +109,60 @@ export async function createAppointment(
     );
 
     /*
-     * Obtenemos Google nuevamente antes de crear
-     * el evento.
+     * PostgreSQL es la fuente de verdad.
+     *
+     * La cita se crea SIEMPRE localmente antes de intentar
+     * sincronizar con Google Calendar.
      */
+    const appointment =
+      await prisma.appointment.create({
+        data: {
+          ownerName: prepared.ownerName,
+          phone: prepared.phone,
+          email: prepared.email,
+          petName: prepared.petName,
+          serviceId: prepared.serviceId,
+          startAt: prepared.startAt,
+          endAt: prepared.endAt,
+          notes: prepared.notes,
+          status: prepared.status,
+        },
+
+        include: {
+          service: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      });
+
     const settings =
       await getGoogleSettings();
 
+    /*
+     * Google es opcional.
+     */
     if (
       !settings?.googleCalendarId ||
       !settings.googleRefreshToken
     ) {
       return {
-        success: false,
+        success: true,
+        appointmentId: appointment.id,
         googleConnected: false,
         message:
-          "Google Calendar no está conectado. Conecta nuevamente Google Calendar antes de crear una cita.",
+          "Cita creada correctamente. Google Calendar está desconectado.",
       };
     }
 
-    /*
-     * Necesitamos el nombre del servicio para construir
-     * el evento de Google.
-     */
-    const service =
-      await prisma.service.findUnique({
-        where: {
-          id: prepared.serviceId,
-        },
-        select: {
-          name: true,
-        },
-      });
-
-    if (!service) {
-      return {
-        success: false,
-        message:
-          "El servicio seleccionado ya no existe.",
-      };
-    }
-
-    const eventData =
-      buildCalendarEventData({
-        ownerName: prepared.ownerName,
-        phone: prepared.phone,
-        email: prepared.email,
-        petName: prepared.petName,
-        notes: prepared.notes,
-        startAt: prepared.startAt,
-        endAt: prepared.endAt,
-        service,
-      });
-
-    let googleEventId: string | null = null;
-
-    /*
-     * =====================================================
-     * GOOGLE PRIMERO
-     * =====================================================
-     */
     try {
-      googleEventId =
+      const eventData =
+        buildCalendarEventData(
+          appointment
+        );
+
+      const googleEventId =
         await createCalendarEvent({
           calendarId:
             settings.googleCalendarId,
@@ -184,63 +170,17 @@ export async function createAppointment(
             settings.googleRefreshToken,
           ...eventData,
         });
-    } catch (error) {
-      console.error(
-        "[createAppointment] Google error:",
-        error
-      );
 
-      if (isGoogleReauthError(error)) {
-        await disconnectGoogle(
-          settings.id
-        );
-
-        return {
-          success: false,
-          googleConnected: false,
-          message:
-            "La conexión con Google Calendar expiró o fue revocada. Vuelve a conectar Google Calendar.",
-        };
-      }
-
-      return {
-        success: false,
-        googleConnected: true,
-        message:
-          "No fue posible crear la cita en Google Calendar. La cita no fue creada.",
-      };
-    }
-
-    if (!googleEventId) {
-      return {
-        success: false,
-        googleConnected: true,
-        message:
-          "Google Calendar no devolvió un identificador de evento. La cita no fue creada.",
-      };
-    }
-
-    /*
-     * =====================================================
-     * POSTGRESQL DESPUÉS DE GOOGLE
-     * =====================================================
-     */
-    try {
-      const appointment =
-        await prisma.appointment.create({
+      if (googleEventId) {
+        await prisma.appointment.update({
+          where: {
+            id: appointment.id,
+          },
           data: {
-            ownerName: prepared.ownerName,
-            phone: prepared.phone,
-            email: prepared.email,
-            petName: prepared.petName,
-            serviceId: prepared.serviceId,
-            startAt: prepared.startAt,
-            endAt: prepared.endAt,
-            notes: prepared.notes,
-            status: prepared.status,
             googleEventId,
           },
         });
+      }
 
       return {
         success: true,
@@ -249,38 +189,33 @@ export async function createAppointment(
         message:
           "Cita creada correctamente.",
       };
-    } catch (databaseError) {
+    } catch (error) {
       console.error(
-        "[createAppointment] PostgreSQL error:",
-        databaseError
+        "[createAppointment] Google error:",
+        error
       );
 
-      /*
-       * PostgreSQL falló después de crear Google.
-       *
-       * Intentamos eliminar el evento para no dejar
-       * una cita huérfana en Google Calendar.
-       */
-      try {
-        await deleteCalendarEvent({
-          calendarId:
-            settings.googleCalendarId,
-          eventId: googleEventId,
-          refreshToken:
-            settings.googleRefreshToken,
-        });
-      } catch (rollbackError) {
-        console.error(
-          "[createAppointment] Google rollback error:",
-          rollbackError
+      if (
+        error instanceof
+          GoogleReauthRequiredError ||
+        isGoogleInvalidGrant(error)
+      ) {
+        await disconnectGoogle(
+          settings.id
         );
       }
 
+      /*
+       * MUY IMPORTANTE:
+       *
+       * NO eliminamos la cita de PostgreSQL.
+       */
       return {
-        success: false,
-        googleConnected: true,
+        success: true,
+        appointmentId: appointment.id,
+        googleConnected: false,
         message:
-          "No fue posible guardar la cita. No se creó la cita localmente.",
+          "Cita creada correctamente, pero no pudo sincronizarse con Google Calendar.",
       };
     }
   } catch (error) {
@@ -288,6 +223,17 @@ export async function createAppointment(
       "[createAppointment]",
       error
     );
+
+    if (
+      error instanceof Error &&
+      error.message === "UNAUTHORIZED"
+    ) {
+      return {
+        success: false,
+        message:
+          "No autorizado.",
+      };
+    }
 
     return {
       success: false,
@@ -318,9 +264,6 @@ export async function updateAppointment(
       };
     }
 
-    /*
-     * Cita actual.
-     */
     const current =
       await prisma.appointment.findUnique({
         where: {
@@ -343,8 +286,7 @@ export async function updateAppointment(
     }
 
     /*
-     * prepareAppointment excluye la propia cita
-     * de la comprobación de disponibilidad.
+     * Excluimos la propia cita para que no choque consigo misma.
      */
     const prepared =
       await prepareAppointment(
@@ -354,151 +296,10 @@ export async function updateAppointment(
         id
       );
 
-    const settings =
-      await getGoogleSettings();
-
-    if (
-      !settings?.googleCalendarId ||
-      !settings.googleRefreshToken
-    ) {
-      return {
-        success: false,
-        googleConnected: false,
-        message:
-          "Google Calendar no está conectado. Conecta nuevamente Google Calendar antes de actualizar una cita.",
-      };
-    }
-
     /*
-     * Servicio nuevo.
+     * PostgreSQL primero.
      */
-    const service =
-      await prisma.service.findUnique({
-        where: {
-          id: prepared.serviceId,
-        },
-        select: {
-          name: true,
-        },
-      });
-
-    if (!service) {
-      return {
-        success: false,
-        message:
-          "El servicio seleccionado ya no existe.",
-      };
-    }
-
-    const eventData =
-      buildCalendarEventData({
-        ownerName: prepared.ownerName,
-        phone: prepared.phone,
-        email: prepared.email,
-        petName: prepared.petName,
-        notes: prepared.notes,
-        startAt: prepared.startAt,
-        endAt: prepared.endAt,
-        service,
-      });
-
-    /*
-     * =====================================================
-     * GOOGLE PRIMERO
-     * =====================================================
-     */
-
-    let googleEventId =
-      current.googleEventId;
-
-    /*
-     * Guardamos los datos anteriores para poder
-     * hacer rollback si PostgreSQL falla.
-     */
-    const previousEventData =
-      buildCalendarEventData({
-        ownerName: current.ownerName,
-        phone: current.phone,
-        email: current.email,
-        petName: current.petName,
-        notes: current.notes,
-        startAt: current.startAt,
-        endAt: current.endAt,
-        service: current.service,
-      });
-
-    try {
-      /*
-       * La cita ya tiene evento.
-       */
-      if (current.googleEventId) {
-        await updateCalendarEvent({
-          calendarId:
-            settings.googleCalendarId,
-          eventId:
-            current.googleEventId,
-          refreshToken:
-            settings.googleRefreshToken,
-          ...eventData,
-        });
-      } else {
-        /*
-         * Por compatibilidad con citas antiguas que
-         * no tengan googleEventId.
-         */
-        googleEventId =
-          await createCalendarEvent({
-            calendarId:
-              settings.googleCalendarId,
-            refreshToken:
-              settings.googleRefreshToken,
-            ...eventData,
-          });
-
-        if (!googleEventId) {
-          return {
-            success: false,
-            googleConnected: true,
-            message:
-              "Google Calendar no devolvió un identificador de evento.",
-          };
-        }
-      }
-    } catch (error) {
-      console.error(
-        "[updateAppointment] Google error:",
-        error
-      );
-
-      if (isGoogleReauthError(error)) {
-        await disconnectGoogle(
-          settings.id
-        );
-
-        return {
-          success: false,
-          appointmentId: id,
-          googleConnected: false,
-          message:
-            "La conexión con Google Calendar expiró o fue revocada. Vuelve a conectar Google Calendar.",
-        };
-      }
-
-      return {
-        success: false,
-        appointmentId: id,
-        googleConnected: true,
-        message:
-          "No fue posible actualizar la cita en Google Calendar. La cita no fue modificada.",
-      };
-    }
-
-    /*
-     * =====================================================
-     * POSTGRESQL DESPUÉS DE GOOGLE
-     * =====================================================
-     */
-    try {
+    const updated =
       await prisma.appointment.update({
         where: {
           id,
@@ -514,62 +315,125 @@ export async function updateAppointment(
           endAt: prepared.endAt,
           notes: prepared.notes,
           status: prepared.status,
-          googleEventId,
+        },
+
+        include: {
+          service: {
+            select: {
+              name: true,
+            },
+          },
         },
       });
+
+    const settings =
+      await getGoogleSettings();
+
+    /*
+     * Sin Google conectado, la actualización local
+     * ya está completa.
+     */
+    if (
+      !settings?.googleCalendarId ||
+      !settings.googleRefreshToken
+    ) {
+      return {
+        success: true,
+        appointmentId: id,
+        googleConnected: false,
+        message:
+          "Cita actualizada correctamente. Google Calendar está desconectado.",
+      };
+    }
+
+    try {
+      const eventData =
+        buildCalendarEventData(
+          updated
+        );
+
+      /*
+       * Ya tenía evento → UPDATE.
+       */
+      if (current.googleEventId) {
+        await updateCalendarEvent({
+          calendarId:
+            settings.googleCalendarId,
+          eventId:
+            current.googleEventId,
+          refreshToken:
+            settings.googleRefreshToken,
+          ...eventData,
+        });
+
+        return {
+          success: true,
+          appointmentId: id,
+          googleConnected: true,
+          message:
+            "Cita actualizada correctamente.",
+        };
+      }
+
+      /*
+       * No tenía evento → CREATE.
+       *
+       * Esto cubre citas creadas mientras Google estaba
+       * desconectado.
+       */
+      const googleEventId =
+        await createCalendarEvent({
+          calendarId:
+            settings.googleCalendarId,
+          refreshToken:
+            settings.googleRefreshToken,
+          ...eventData,
+        });
+
+      if (googleEventId) {
+        await prisma.appointment.update({
+          where: {
+            id,
+          },
+          data: {
+            googleEventId,
+          },
+        });
+      }
 
       return {
         success: true,
         appointmentId: id,
         googleConnected: true,
         message:
-          "Cita actualizada correctamente.",
+          "Cita actualizada y sincronizada correctamente.",
       };
-    } catch (databaseError) {
+    } catch (error) {
       console.error(
-        "[updateAppointment] PostgreSQL error:",
-        databaseError
+        "[updateAppointment] Google error:",
+        error
       );
 
-      /*
-       * ===================================================
-       * ROLLBACK GOOGLE
-       * ===================================================
-       */
-
-      try {
-        if (current.googleEventId) {
-          await updateCalendarEvent({
-            calendarId:
-              settings.googleCalendarId,
-            eventId:
-              current.googleEventId,
-            refreshToken:
-              settings.googleRefreshToken,
-            ...previousEventData,
-          });
-        } else if (googleEventId) {
-          await deleteCalendarEvent({
-            calendarId:
-              settings.googleCalendarId,
-            eventId: googleEventId,
-            refreshToken:
-              settings.googleRefreshToken,
-          });
-        }
-      } catch (rollbackError) {
-        console.error(
-          "[updateAppointment] Google rollback error:",
-          rollbackError
+      if (
+        error instanceof
+          GoogleReauthRequiredError ||
+        isGoogleInvalidGrant(error)
+      ) {
+        await disconnectGoogle(
+          settings.id
         );
       }
 
+      /*
+       * PostgreSQL YA fue actualizado.
+       * No hacemos rollback por error de Google.
+       */
       return {
-        success: false,
+        success: true,
         appointmentId: id,
-        googleConnected: true,
+        googleConnected: false,
         message:
-          "No fue posible guardar los cambios. Se intentó revertir Google Calendar.",
+          "Cita actualizada correctamente, pero no pudo sincronizarse con Google Calendar.",
       };
     }
   } catch (error) {
@@ -577,6 +441,17 @@ export async function updateAppointment(
       "[updateAppointment]",
       error
     );
+
+    if (
+      error instanceof Error &&
+      error.message === "UNAUTHORIZED"
+    ) {
+      return {
+        success: false,
+        message:
+          "No autorizado.",
+      };
+    }
 
     return {
       success: false,
@@ -631,27 +506,19 @@ export async function deleteAppointment(
       };
     }
 
+    const settings =
+      await getGoogleSettings();
+
     /*
-     * Si existe evento, Google debe confirmar primero
-     * la eliminación.
+     * Intentamos borrar Google.
+     *
+     * Si falla, continuamos.
      */
-    if (appointment.googleEventId) {
-      const settings =
-        await getGoogleSettings();
-
-      if (
-        !settings?.googleCalendarId ||
-        !settings.googleRefreshToken
-      ) {
-        return {
-          success: false,
-          appointmentId: id,
-          googleConnected: false,
-          message:
-            "Google Calendar no está conectado. No se puede cancelar la cita hasta restablecer la conexión.",
-        };
-      }
-
+    if (
+      appointment.googleEventId &&
+      settings?.googleCalendarId &&
+      settings.googleRefreshToken
+    ) {
       try {
         await deleteCalendarEvent({
           calendarId:
@@ -667,34 +534,20 @@ export async function deleteAppointment(
           error
         );
 
-        if (isGoogleReauthError(error)) {
+        if (
+          error instanceof
+            GoogleReauthRequiredError ||
+          isGoogleInvalidGrant(error)
+        ) {
           await disconnectGoogle(
             settings.id
           );
-
-          return {
-            success: false,
-            appointmentId: id,
-            googleConnected: false,
-            message:
-              "La conexión con Google Calendar expiró o fue revocada. Vuelve a conectar Google Calendar.",
-          };
         }
-
-        return {
-          success: false,
-          appointmentId: id,
-          googleConnected: true,
-          message:
-            "No fue posible cancelar la cita en Google Calendar. La cita no fue cancelada.",
-        };
       }
     }
 
     /*
-     * Google fue eliminado correctamente.
-     *
-     * Ahora cancelamos PostgreSQL.
+     * CANCELACIÓN LOCAL SIEMPRE.
      */
     await prisma.appointment.update({
       where: {
@@ -710,7 +563,6 @@ export async function deleteAppointment(
     return {
       success: true,
       appointmentId: id,
-      googleConnected: true,
       message:
         "Cita cancelada correctamente.",
     };
@@ -773,26 +625,19 @@ export async function hardDeleteAppointment(
       };
     }
 
+    const settings =
+      await getGoogleSettings();
+
     /*
-     * Si tiene evento Google, lo eliminamos primero.
+     * Intentamos eliminar evento de Google.
+     *
+     * El hard delete local NO depende de que Google responda.
      */
-    if (appointment.googleEventId) {
-      const settings =
-        await getGoogleSettings();
-
-      if (
-        !settings?.googleCalendarId ||
-        !settings.googleRefreshToken
-      ) {
-        return {
-          success: false,
-          appointmentId: id,
-          googleConnected: false,
-          message:
-            "Google Calendar no está conectado. No se puede eliminar permanentemente la cita hasta restablecer la conexión.",
-        };
-      }
-
+    if (
+      appointment.googleEventId &&
+      settings?.googleCalendarId &&
+      settings.googleRefreshToken
+    ) {
       try {
         await deleteCalendarEvent({
           calendarId:
@@ -808,34 +653,20 @@ export async function hardDeleteAppointment(
           error
         );
 
-        if (isGoogleReauthError(error)) {
+        if (
+          error instanceof
+            GoogleReauthRequiredError ||
+          isGoogleInvalidGrant(error)
+        ) {
           await disconnectGoogle(
             settings.id
           );
-
-          return {
-            success: false,
-            appointmentId: id,
-            googleConnected: false,
-            message:
-              "La conexión con Google Calendar expiró o fue revocada. Vuelve a conectar Google Calendar.",
-          };
         }
-
-        return {
-          success: false,
-          appointmentId: id,
-          googleConnected: true,
-          message:
-            "No fue posible eliminar la cita de Google Calendar. La cita no fue eliminada.",
-        };
       }
     }
 
     /*
-     * Google fue eliminado correctamente.
-     *
-     * Ahora eliminamos PostgreSQL.
+     * Eliminación definitiva de PostgreSQL.
      */
     await prisma.appointment.delete({
       where: {
@@ -846,7 +677,6 @@ export async function hardDeleteAppointment(
     return {
       success: true,
       appointmentId: id,
-      googleConnected: true,
       message:
         "Cita eliminada permanentemente.",
     };
