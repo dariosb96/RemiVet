@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 
 import { BookingPage } from "./components/booking-page";
 
+export const dynamic = "force-dynamic";
+
 export default async function ReservePage() {
   const [services, settings] =
     await Promise.all([

@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -38,6 +37,10 @@ export function EditServiceDialog({
 }: EditServiceDialogProps) {
   const [open, setOpen] = useState(false);
 
+  const handleSuccess = useCallback(() => {
+    setOpen(false);
+  }, []);
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={children} />
@@ -48,9 +51,10 @@ export function EditServiceDialog({
         </DialogHeader>
 
         <ServiceForm
+          key={service.id}
           action={updateService}
           submitLabel="Guardar cambios"
-          onSuccess={() => setOpen(false)}
+          onSuccess={handleSuccess}
           defaultValues={{
             id: service.id,
             name: service.name,

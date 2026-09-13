@@ -1,10 +1,12 @@
 "use server";
 
 import { fromZonedTime } from "date-fns-tz";
+
 import {
   getCalendarEvents,
   GoogleReauthRequiredError,
 } from "@/lib/google/calendar";
+
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -12,8 +14,8 @@ import {
 } from "@/lib/appointments/availability";
 
 import {
-  createAppointment,
-} from "@/lib/appointments/actions";
+  createAppointmentInternal,
+} from "@/lib/appointments/mutations";
 
 export interface AvailableSlotsResult {
   success: boolean;
@@ -161,7 +163,6 @@ export async function getAvailableSlotsAction({
           where: {
             id: serviceId,
           },
-
           select: {
             id: true,
             active: true,
@@ -213,10 +214,13 @@ export async function getAvailableSlotsAction({
      * Sin Google Calendar no podemos garantizar
      * disponibilidad real.
      */
-    if (
-      !settings.googleRefreshToken ||
-      !settings.googleCalendarId
-    ) {
+    const calendarId =
+      settings.googleCalendarId;
+
+    const refreshToken =
+      settings.googleRefreshToken;
+
+    if (!calendarId || !refreshToken) {
       return {
         success: false,
         slots: [],
@@ -267,12 +271,8 @@ export async function getAvailableSlotsAction({
     try {
       googleBlockedRanges =
         await getCalendarEvents({
-          calendarId:
-            settings.googleCalendarId,
-
-          refreshToken:
-            settings.googleRefreshToken,
-
+          calendarId,
+          refreshToken,
           timeMin: dayStart,
           timeMax: dayEnd,
         });
@@ -429,8 +429,8 @@ export async function createPublicAppointment(
     );
 
     /*
-     * Volvemos a consultar disponibilidad inmediatamente
-     * antes de crear.
+     * Volvemos a consultar disponibilidad
+     * inmediatamente antes de crear.
      */
     const availability =
       await getAvailableSlotsAction({
@@ -473,7 +473,7 @@ export async function createPublicAppointment(
       timezone
     );
 
-    return createAppointment({
+    return createAppointmentInternal({
       ownerName:
         values.ownerName,
 

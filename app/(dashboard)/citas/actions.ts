@@ -1,8 +1,5 @@
 "use server";
-import {
-  getCalendarEvents,
-  GoogleReauthRequiredError,
-} from "@/lib/google/calendar";
+
 import { fromZonedTime } from "date-fns-tz";
 
 import { prisma } from "@/lib/prisma";
@@ -18,10 +15,6 @@ import {
   hardDeleteAppointment as hardDeleteAppointmentAction,
 } from "@/lib/appointments/actions";
 
-/* =========================================================
-   TYPES
-========================================================= */
-
 export interface AvailableSlotsResult {
   success: boolean;
   slots: string[];
@@ -34,9 +27,6 @@ interface GetAvailableSlotsInput {
   excludeAppointmentId?: string;
 }
 
-/* =========================================================
-   HELPERS
-========================================================= */
 
 function isValidDateString(
   value: string
@@ -158,16 +148,18 @@ export async function getAvailableSlotsAction({
       };
     }
 
-    const service = await prisma.service.findUnique({
-      where: {
-        id: serviceId,
-      },
-      select: {
-        id: true,
-        active: true,
-        durationMinutes: true,
-      },
-    });
+    const service =
+      await prisma.service.findUnique({
+        where: {
+          id: serviceId,
+        },
+
+        select: {
+          id: true,
+          active: true,
+          durationMinutes: true,
+        },
+      });
 
     if (!service) {
       return {
@@ -186,34 +178,45 @@ export async function getAvailableSlotsAction({
       };
     }
 
-    const settings = await prisma.settings.findFirst({
-      select: {
-        openingTime: true,
-        closingTime: true,
-        slotIntervalMinutes: true,
-        appointmentBufferMinutes: true,
-        timezone: true,
-        businessDays: true,
-        googleRefreshToken: true,
-        googleCalendarId: true,
-      },
-    });
+    const settings =
+      await prisma.settings.findFirst({
+        select: {
+          openingTime: true,
+          closingTime: true,
+          slotIntervalMinutes: true,
+          appointmentBufferMinutes: true,
+          timezone: true,
+          businessDays: true,
+          googleRefreshToken: true,
+          googleCalendarId: true,
+        },
+      });
 
     if (!settings) {
       return {
         success: false,
         slots: [],
-        message: "La agenda todavía no está configurada.",
+        message:
+          "La agenda todavía no está configurada.",
       };
     }
 
     /*
-     * Google Calendar es obligatorio para consultar disponibilidad.
+     * Guardamos los valores en constantes para que
+     * TypeScript los reconozca como string después
+     * de la validación.
      */
-    if (
-      !settings.googleRefreshToken ||
-      !settings.googleCalendarId
-    ) {
+    const calendarId =
+      settings.googleCalendarId;
+
+    const refreshToken =
+      settings.googleRefreshToken;
+
+    /*
+     * Google Calendar es obligatorio para consultar
+     * disponibilidad real.
+     */
+    if (!calendarId || !refreshToken) {
       return {
         success: false,
         slots: [],
@@ -223,10 +226,12 @@ export async function getAvailableSlotsAction({
     }
 
     const timezone =
-      settings.timezone || "America/Mexico_City";
+      settings.timezone ||
+      "America/Mexico_City";
 
     /*
-     * Inicio del día en la zona horaria de la clínica.
+     * Inicio del día en la zona horaria
+     * de la clínica.
      */
     const dayStart = fromZonedTime(
       `${date}T00:00:00`,
@@ -234,7 +239,8 @@ export async function getAvailableSlotsAction({
     );
 
     /*
-     * Fin del día en la zona horaria de la clínica.
+     * Fin del día en la zona horaria
+     * de la clínica.
      */
     const dayEnd = fromZonedTime(
       `${date}T23:59:59.999`,
@@ -270,29 +276,37 @@ export async function getAvailableSlotsAction({
       });
 
     /*
-     * Consultamos Google Calendar.
+     * Cargamos Google Calendar dinámicamente.
      *
-     * Si Google falla o la autorización fue revocada,
-     * NO devolvemos slots. Google es la fuente externa
-     * de verdad para la disponibilidad.
+     * IMPORTANTE:
+     * No importamos google/calendar arriba del archivo.
+     * Esto evita que google-auth-library termine
+     * entrando al bundle del cliente.
+     */
+    const {
+      getCalendarEvents,
+      GoogleReauthRequiredError,
+    } = await import(
+      "@/lib/google/calendar"
+    );
+
+    /*
+     * Consultamos Google Calendar.
      */
     let googleBlockedRanges;
 
     try {
       googleBlockedRanges =
         await getCalendarEvents({
-          calendarId:
-            settings.googleCalendarId,
-
-          refreshToken:
-            settings.googleRefreshToken,
-
+          calendarId,
+          refreshToken,
           timeMin: dayStart,
           timeMax: dayEnd,
         });
     } catch (error) {
       if (
-        error instanceof GoogleReauthRequiredError
+        error instanceof
+        GoogleReauthRequiredError
       ) {
         await prisma.settings.updateMany({
           data: {
@@ -323,12 +337,11 @@ export async function getAvailableSlotsAction({
     }
 
     /*
-     * Si estamos editando una cita, excluimos también
-     * su evento correspondiente de Google Calendar.
-     *
-     * De esta forma la propia cita no bloquea su nuevo horario.
+     * Si estamos editando una cita,
+     * excluimos también su evento de Google.
      */
-    let excludedGoogleEventId: string | null = null;
+    let excludedGoogleEventId:
+      string | null = null;
 
     if (excludeAppointmentId) {
       const existingAppointment =
@@ -336,30 +349,34 @@ export async function getAvailableSlotsAction({
           where: {
             id: excludeAppointmentId,
           },
+
           select: {
             googleEventId: true,
           },
         });
 
       excludedGoogleEventId =
-        existingAppointment?.googleEventId ?? null;
+        existingAppointment?.googleEventId ??
+        null;
     }
 
     const externalBlockedRanges =
       googleBlockedRanges.filter(
         (range) =>
           !excludedGoogleEventId ||
-          range.eventId !== excludedGoogleEventId
+          range.eventId !==
+            excludedGoogleEventId
       );
 
     /*
      * Generamos los slots considerando:
      *
      * - horario de clínica
-     * - excepciones
+     * - días laborales
      * - citas PostgreSQL
      * - eventos Google Calendar
      * - duración
+     * - intervalo
      * - buffer
      */
     const availableSlots =
@@ -398,7 +415,8 @@ export async function getAvailableSlotsAction({
         (slot) => slot > now
       )
       .map(
-        (slot) => slot.toISOString()
+        (slot) =>
+          slot.toISOString()
       );
 
     return {

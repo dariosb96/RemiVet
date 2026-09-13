@@ -1,9 +1,7 @@
 "use client";
 
-import {
-  useActionState,
-  useEffect,
-} from "react";
+import { useState, useEffect } from "react";
+import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
 import { Button } from "@/components/ui/button";
@@ -12,10 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 type ActionResult = {
   success: boolean;
-  errors?: Record<
-    string,
-    string[] | undefined
-  >;
+  errors?: Record<string, string[] | undefined>;
   message?: string;
 };
 
@@ -44,8 +39,7 @@ function SubmitButton({
 }: {
   label: string;
 }) {
-  const { pending } =
-    useFormStatus();
+  const { pending } = useFormStatus();
 
   return (
     <Button
@@ -53,9 +47,7 @@ function SubmitButton({
       className="w-full"
       disabled={pending}
     >
-      {pending
-        ? "Guardando..."
-        : label}
+      {pending ? "Guardando..." : label}
     </Button>
   );
 }
@@ -66,11 +58,34 @@ export function ServiceForm({
   defaultValues,
   onSuccess,
 }: ServiceFormProps) {
-  const [state, formAction] =
-    useActionState<
-      ActionResult | null,
-      FormData
-    >(action, null);
+  const [state, formAction] = useActionState<
+    ActionResult | null,
+    FormData
+  >(action, null);
+
+  const [name, setName] = useState(
+    defaultValues?.name ?? "",
+  );
+
+  const [description, setDescription] =
+    useState(
+      defaultValues?.description ?? "",
+    );
+
+  const [durationMinutes, setDurationMinutes] =
+    useState(
+      String(
+        defaultValues?.durationMinutes ?? 30,
+      ),
+    );
+
+  const [price, setPrice] = useState(
+    String(defaultValues?.price ?? 0),
+  );
+
+  const [color, setColor] = useState(
+    defaultValues?.color ?? "#3b82f6",
+  );
 
   useEffect(() => {
     if (state?.success) {
@@ -104,8 +119,9 @@ export function ServiceForm({
           id="name"
           name="name"
           required
-          defaultValue={
-            defaultValues?.name ?? ""
+          value={name}
+          onChange={(event) =>
+            setName(event.target.value)
           }
         />
 
@@ -128,19 +144,15 @@ export function ServiceForm({
           id="description"
           name="description"
           rows={3}
-          defaultValue={
-            defaultValues?.description ??
-            ""
+          value={description}
+          onChange={(event) =>
+            setDescription(event.target.value)
           }
         />
 
-        {state?.errors
-          ?.description?.[0] && (
+        {state?.errors?.description?.[0] && (
           <p className="text-sm text-destructive">
-            {
-              state.errors
-                .description[0]
-            }
+            {state.errors.description[0]}
           </p>
         )}
       </div>
@@ -162,19 +174,17 @@ export function ServiceForm({
             max={480}
             step={5}
             required
-            defaultValue={
-              defaultValues
-                ?.durationMinutes ?? 30
+            value={durationMinutes}
+            onChange={(event) =>
+              setDurationMinutes(
+                event.target.value,
+              )
             }
           />
 
-          {state?.errors
-            ?.durationMinutes?.[0] && (
+          {state?.errors?.durationMinutes?.[0] && (
             <p className="text-sm text-destructive">
-              {
-                state.errors
-                  .durationMinutes[0]
-              }
+              {state.errors.durationMinutes[0]}
             </p>
           )}
         </div>
@@ -194,18 +204,15 @@ export function ServiceForm({
             min={0}
             step="0.01"
             required
-            defaultValue={
-              defaultValues?.price ?? 0
+            value={price}
+            onChange={(event) =>
+              setPrice(event.target.value)
             }
           />
 
-          {state?.errors
-            ?.price?.[0] && (
+          {state?.errors?.price?.[0] && (
             <p className="text-sm text-destructive">
-              {
-                state.errors
-                  .price[0]
-              }
+              {state.errors.price[0]}
             </p>
           )}
         </div>
@@ -223,19 +230,15 @@ export function ServiceForm({
           id="color"
           type="color"
           name="color"
-          defaultValue={
-            defaultValues?.color ??
-            "#3b82f6"
+          value={color}
+          onChange={(event) =>
+            setColor(event.target.value)
           }
         />
 
-        {state?.errors
-          ?.color?.[0] && (
+        {state?.errors?.color?.[0] && (
           <p className="text-sm text-destructive">
-            {
-              state.errors
-                .color[0]
-            }
+            {state.errors.color[0]}
           </p>
         )}
       </div>
@@ -246,9 +249,7 @@ export function ServiceForm({
         </p>
       )}
 
-      <SubmitButton
-        label={submitLabel}
-      />
+      <SubmitButton label={submitLabel} />
     </form>
   );
 }
