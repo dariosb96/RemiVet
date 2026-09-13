@@ -75,21 +75,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
         );
       })}
 
-      <div className="my-3 border-t" />
-
-      <Link
-        href="/configuracion/usuarios"
-        onClick={onNavigate}
-        className={[
-          "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-          pathname.startsWith("/configuracion/usuarios")
-            ? "bg-primary text-primary-foreground"
-            : "text-muted-foreground hover:bg-muted hover:text-foreground",
-        ].join(" ")}
-      >
-        <Users className="h-4 w-4" />
-        Usuarios
-      </Link>
+      
     </nav>
   );
 }
