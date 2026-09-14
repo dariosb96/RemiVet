@@ -17,9 +17,9 @@ export default async function SetupPage() {
    * disponible.
    */
 
-  if (userCount > 0) {
-    redirect("/setup");
-  }
+ if (userCount > 0) {
+  redirect("/login");
+}
 
   return (
     <main className="flex min-h-screen items-center justify-center px-6">
