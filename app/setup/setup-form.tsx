@@ -44,11 +44,6 @@ export default function SetupForm() {
     setLoading(true);
 
     try {
-      /*
-       * =======================================================
-       * CREAR CUENTA
-       * =======================================================
-       */
 
       const formData =
         new FormData(
@@ -65,18 +60,6 @@ export default function SetupForm() {
         return;
       }
 
-      /*
-       * =======================================================
-       * LOGIN AUTOMÁTICO
-       * =======================================================
-       *
-       * La cuenta ya existe en PostgreSQL.
-       *
-       * Ahora usamos exactamente las mismas credenciales
-       * que acaba de introducir el usuario para crear
-       * la sesión de NextAuth.
-       */
-
       const loginResult =
         await signIn(
           "credentials",
@@ -87,11 +70,6 @@ export default function SetupForm() {
           }
         );
 
-      /*
-       * =======================================================
-       * COMPROBAR LOGIN
-       * =======================================================
-       */
 
       if (
         !loginResult ||
@@ -108,20 +86,6 @@ export default function SetupForm() {
 
         return;
       }
-
-      /*
-       * =======================================================
-       * CONFIGURACIÓN
-       * =======================================================
-       *
-       * Ya tenemos:
-       *
-       * User      ✅
-       * Settings  ✅
-       * Sesión    ✅
-       *
-       * Por lo tanto vamos directamente a configuración.
-       */
 
       router.replace(
         "/configuracion"
@@ -170,7 +134,7 @@ export default function SetupForm() {
           maxLength={100}
           required
           disabled={loading}
-          className="w-full rounded-md border bg-background px-3 py-2 outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full rounded-md border border-pink-400 bg-background px-3 py-2 outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
         />
       </div>
 
@@ -195,7 +159,7 @@ export default function SetupForm() {
           autoComplete="email"
           required
           disabled={loading}
-          className="w-full rounded-md border bg-background px-3 py-2 outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full rounded-md border border-pink-400 bg-background px-3 py-2 outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
         />
       </div>
 
@@ -221,7 +185,7 @@ export default function SetupForm() {
           minLength={8}
           required
           disabled={loading}
-          className="w-full rounded-md border bg-background px-3 py-2 outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full rounded-md border border-pink-400 bg-background px-3 py-2 outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
         />
 
         <p className="text-xs text-muted-foreground">
@@ -241,7 +205,7 @@ export default function SetupForm() {
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full rounded-md bg-pink-300 px-4 py-2 font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
       >
         {loading
           ? "Configurando RemiVet..."
