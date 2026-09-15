@@ -24,7 +24,7 @@ export default async function SetupPage() {
               width={420}
               height={420}
               priority
-              className="mx-auto h-auto w-[130px] sm:w-[160px]"
+              className="mx-auto h-auto w-[100px] sm:w-[160px]"
             />
           </div>
 
