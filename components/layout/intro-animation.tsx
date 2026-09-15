@@ -39,7 +39,7 @@ export function IntroAnimation() {
             : "scale-100 opacity-100"
         }`}
       >
-        <p className="text-2xl font-bold text-white text-center">Bienvenidos</p>
+        <p className="text-2xl font-bold text-white text-center">Bienvenido</p>
         <Image
           src="/RemiLogo.png"
           alt="Remi Vet"
