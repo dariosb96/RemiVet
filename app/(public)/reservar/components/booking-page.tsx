@@ -127,13 +127,13 @@ if (bookingCompleted) {
           🐾
         </div>
 
-        <h1 className="text-2xl font-bold">
+        <h1 className="text-2xl font-bold text-pink-400">
           ¡Cita agendada!
         </h1>
 
         {/* DETALLES DE LA CITA */}
 
-        <div className="mt-6 rounded-xl border bg-muted/50 p-5 text-left">
+        <div className="mt-6 rounded-xl border bg-muted/50 p-5 text-left border-pink-500">
           <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             Detalles de tu cita
           </h2>
@@ -190,7 +190,7 @@ if (bookingCompleted) {
         <button
           type="button"
           onClick={handleNewBooking}
-          className="mt-8 inline-flex h-10 items-center justify-center rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          className="mt-8 inline-flex h-10 items-center justify-center rounded-md bg-pink-300 px-5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
         >
           Agendar otra cita
         </button>
