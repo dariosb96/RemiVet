@@ -101,19 +101,11 @@ export function BookingPage({
     });
   }
 
-  /*
-   * Se ejecuta después de que
-   * createPublicAppointment()
-   * devuelve success: true.
-   */
   function handleBookingSuccess() {
     setBookingCompleted(true);
   }
 
-  /*
-   * Reinicia completamente el flujo
-   * para permitir otra reserva.
-   */
+
   function handleNewBooking() {
     setBookingCompleted(false);
     setServiceId("");
@@ -121,10 +113,6 @@ export function BookingPage({
     setSlots([]);
     setSelectedSlot(null);
   }
-
-  /*
-   * PANTALLA DE CONFIRMACIÓN
-   */
 
 if (bookingCompleted) {
   const confirmedService = services.find(
@@ -142,10 +130,6 @@ if (bookingCompleted) {
         <h1 className="text-2xl font-bold">
           ¡Cita agendada!
         </h1>
-
-        <p className="mt-3 text-muted-foreground">
-          Tu cita fue registrada correctamente.
-        </p>
 
         {/* DETALLES DE LA CITA */}
 
@@ -224,13 +208,11 @@ if (bookingCompleted) {
     <main className="mx-auto w-full max-w-2xl px-6 py-10">
 
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-green-300">
+        <h1 className="text-3xl font-bold text-pink-400">
           Reserva tu cita
         </h1>
 
-        <p className="mt-2 text-muted-foreground">
-          Completa los datos para agendar la cita de tu mascota.
-        </p>
+
       </div>
 
       <div className="space-y-6">
@@ -240,7 +222,7 @@ if (bookingCompleted) {
         <div className="grid gap-2">
           <label
             htmlFor="service"
-            className="text-sm font-medium text-green-200"
+            className="text-sm font-medium text-pink-300"
           >
             Servicio
           </label>
@@ -264,9 +246,8 @@ if (bookingCompleted) {
                 key={service.id}
                 value={service.id}
               >
-                {service.name} ·{" "}
-                {service.durationMinutes} min · $
-                {service.price.toFixed(2)}
+                {service.name}  ·  {" "}
+                {service.durationMinutes} min 
               </option>
             ))}
           </select>
@@ -279,7 +260,7 @@ if (bookingCompleted) {
 
             <label
               htmlFor="date"
-              className="text-sm font-medium text-green-200"
+              className="text-sm font-medium text-pink-300"
             >
               Fecha
             </label>

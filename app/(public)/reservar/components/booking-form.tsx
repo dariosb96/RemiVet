@@ -103,11 +103,6 @@ export function BookingForm({
           );
 
         if (!result.success) {
-          /**
-           * ===============================================
-           * ERRORES DE VALIDACIÓN ZOD
-           * ===============================================
-           */
 
           if (
             "errors" in result &&
@@ -141,11 +136,6 @@ export function BookingForm({
               errors
             );
 
-            /**
-             * También mostramos un mensaje
-             * general para que el usuario
-             * sepa que debe revisar el formulario.
-             */
 
             setError(
               "Revisa los datos marcados en el formulario."
@@ -154,11 +144,6 @@ export function BookingForm({
             return;
           }
 
-          /**
-           * ===============================================
-           * ERROR GENERAL
-           * ===============================================
-           */
 
           setError(
             result.message ??
@@ -167,12 +152,6 @@ export function BookingForm({
 
           return;
         }
-
-        /**
-         * ===============================================
-         * RESERVA EXITOSA
-         * ===============================================
-         */
 
         onSuccess?.();
       }
@@ -184,22 +163,12 @@ export function BookingForm({
       onSubmit={handleSubmit}
       className="space-y-8 rounded-xl border bg-card p-6"
     >
-      {/* ===================================================
-          RESUMEN
-      =================================================== */}
 
       <div className="space-y-1">
-        <h2 className="text-lg font-semibold">
+        <h2 className="text-lg font-semibold text-pink-400">
           Completa tus datos
         </h2>
 
-        <p className="text-sm text-muted-foreground">
-          {service.name} ·{" "}
-          {format(
-            slot,
-            "dd/MM/yyyy 'a las' HH:mm"
-          )}
-        </p>
       </div>
 
       {/* ===================================================
@@ -215,27 +184,13 @@ export function BookingForm({
         </div>
       )}
 
-      {/* ===================================================
-          DATOS DEL CLIENTE
-      =================================================== */}
-
       <div className="space-y-4">
-        <div>
-          <h3 className="font-medium">
-            Datos del cliente
-          </h3>
-
-          <p className="text-sm text-muted-foreground">
-            Necesitamos estos datos para confirmar
-            tu cita.
-          </p>
-        </div>
-
+       
         {/* NOMBRE */}
 
         <div className="grid gap-2">
           <Label htmlFor="ownerName">
-            Nombre
+            Nombre del propietario
           </Label>
 
           <Input
@@ -287,7 +242,7 @@ export function BookingForm({
 
         <div className="grid gap-2">
           <Label htmlFor="email">
-            Correo electrónico
+            Correo electrónico (opcional)
           </Label>
 
           <Input
@@ -315,13 +270,10 @@ export function BookingForm({
 
       <div className="space-y-4">
         <div>
-          <h3 className="font-medium">
+          <h3 className="font-medium text-pink-400">
             Datos de la mascota
           </h3>
 
-          <p className="text-sm text-muted-foreground">
-            Cuéntanos quién es el paciente.
-          </p>
         </div>
 
         {/* MASCOTA */}
@@ -352,13 +304,13 @@ export function BookingForm({
 
         <div className="grid gap-2">
           <Label htmlFor="notes">
-            Notas
+            Motivo de consulta
           </Label>
 
           <Textarea
             id="notes"
             name="notes"
-            placeholder="Información adicional sobre tu mascota o la cita..."
+            placeholder="Motivo de consulta o informacion adicional"
             rows={4}
             aria-invalid={
               !!fieldErrors.notes
@@ -373,13 +325,9 @@ export function BookingForm({
         </div>
       </div>
 
-      {/* ===================================================
-          BOTÓN
-      =================================================== */}
-
       <Button
         type="submit"
-        className="w-full"
+        className="w-full bg-pink-500 hover:bg-pink-200"
         disabled={pending}
       >
         {pending
