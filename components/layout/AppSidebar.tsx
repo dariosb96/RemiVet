@@ -66,7 +66,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
               "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
               isActive
                 ? "bg-cyan-200 text-primary-foreground"
-                : "text-white hover:bg-muted hover:text-foreground",
+                : "text-foreground hover:bg-muted hover:text-foreground",
             ].join(" ")}
           >
             <Icon className="h-4 w-4" />
