@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { format } from "date-fns";
+import { es } from "date-fns/locale";
 import { toast } from "sonner";
 
 import {
@@ -23,14 +24,12 @@ export function BookingPage({
   services,
   settings,
 }: Props) {
-  const [serviceId, setServiceId] =
-    useState("");
+  const [serviceId, setServiceId] = useState("");
 
   const [selectedDate, setSelectedDate] =
     useState("");
 
-  const [slots, setSlots] =
-    useState<string[]>([]);
+  const [slots, setSlots] = useState<string[]>([]);
 
   const [selectedSlot, setSelectedSlot] =
     useState<string | null>(null);
@@ -41,24 +40,21 @@ export function BookingPage({
   const [bookingCompleted, setBookingCompleted] =
     useState(false);
 
+  const [petName, setPetName] = useState("");
+
   const selectedService =
     services.find(
-      (service) =>
-        service.id === serviceId
+      (service) => service.id === serviceId
     ) ?? null;
 
-  function handleServiceChange(
-    value: string
-  ) {
+  function handleServiceChange(value: string) {
     setServiceId(value);
     setSelectedDate("");
     setSlots([]);
     setSelectedSlot(null);
   }
 
-  function handleDateChange(
-    value: string
-  ) {
+  function handleDateChange(value: string) {
     setSelectedDate(value);
     setSlots([]);
     setSelectedSlot(null);
@@ -101,10 +97,12 @@ export function BookingPage({
     });
   }
 
-  function handleBookingSuccess() {
+  function handleBookingSuccess(
+    confirmedPetName: string
+  ) {
+    setPetName(confirmedPetName);
     setBookingCompleted(true);
   }
-
 
   function handleNewBooking() {
     setBookingCompleted(false);
@@ -112,93 +110,133 @@ export function BookingPage({
     setSelectedDate("");
     setSlots([]);
     setSelectedSlot(null);
+    setPetName("");
   }
 
-if (bookingCompleted) {
-  const confirmedService = services.find(
-    (service) => service.id === serviceId
-  );
+  if (bookingCompleted) {
+    const confirmedService = services.find(
+      (service) => service.id === serviceId
+    );
 
-  return (
-    <main className="mx-auto w-full max-w-2xl px-6 py-16">
-      <div className="rounded-xl border bg-card p-8 text-center shadow-sm">
+    return (
+      <main className="mx-auto w-full max-w-2xl px-6 py-16">
+        <div className="rounded-xl border bg-card p-8 text-center shadow-sm">
 
-        <div className="mb-5 text-5xl">
-          🐾
-        </div>
-
-        <h1 className="text-2xl font-bold text-pink-400">
-          ¡Cita agendada!
-        </h1>
-
-        {/* DETALLES DE LA CITA */}
-
-        <div className="mt-6 rounded-xl border bg-muted/50 p-5 text-left border-pink-500">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Detalles de tu cita
-          </h2>
-
-          <div className="space-y-3">
-
-            <div>
-              <p className="text-xs text-muted-foreground">
-                Servicio
-              </p>
-
-              <p className="font-medium">
-                {confirmedService?.name ?? "Servicio"}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-xs text-muted-foreground">
-                Fecha
-              </p>
-
-              <p className="font-medium">
-                {format(
-                  new Date(
-                    selectedSlot ?? ""
-                  ),
-                  "dd 'de' MMMM 'de' yyyy"
-                )}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-xs text-muted-foreground">
-                Hora
-              </p>
-
-              <p className="font-medium">
-                {format(
-                  new Date(
-                    selectedSlot ?? ""
-                  ),
-                  "HH:mm"
-                )}
-              </p>
-            </div>
-
+          {/* ICONO */}
+          <div className="mb-5 text-5xl">
+            🐾
           </div>
+
+          {/* TITULO */}
+          <h1 className="text-2xl font-bold text-pink-400">
+            ¡Cita agendada!
+          </h1>
+
+          {/* DETALLES DE LA CITA */}
+          <div className="mt-6 rounded-xl border border-pink-500 bg-muted/50 p-5 text-left">
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Detalles de tu cita
+            </h2>
+
+            <div className="space-y-4">
+
+              {/* SERVICIO */}
+              <div>
+                <p className="text-xs text-muted-foreground">
+                  Servicio
+                </p>
+
+                <p className="font-medium">
+                  {confirmedService?.name ??
+                    "Servicio"}
+                </p>
+              </div>
+
+              {/* FECHA */}
+              <div>
+                <p className="text-xs text-muted-foreground">
+                  Fecha
+                </p>
+
+                <p className="font-medium capitalize">
+                  {format(
+                    new Date(
+                      selectedSlot ?? ""
+                    ),
+                    "EEEE dd 'de' MMMM 'de' yyyy",
+                    {
+                      locale: es,
+                    }
+                  )}
+                </p>
+              </div>
+
+              {/* HORA */}
+              <div>
+                <p className="text-xs text-muted-foreground">
+                  Hora
+                </p>
+
+                <p className="font-medium">
+                  {format(
+                    new Date(
+                      selectedSlot ?? ""
+                    ),
+                    "HH:mm"
+                  )}
+                </p>
+              </div>
+
+            </div>
+          </div>
+
+          {/* UBICACIÓN */}
+          <div className="mt-6 rounded-xl border bg-muted/30 p-5">
+            <p className="text-sm font-semibold">
+              📍 Ubicación
+            </p>
+
+            <a
+              href="https://maps.app.goo.gl/22gWDK1AkTt3r5EFA"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 inline-flex items-center justify-center rounded-md border border-pink-300 px-4 py-2 text-sm font-medium text-pink-400 transition-colors hover:bg-pink-50 dark:hover:bg-pink-950/30"
+            >
+              📍 Ver ubicación en Google Maps
+            </a>
+          </div>
+
+          {/* MENSAJE DE BIENVENIDA */}
+          <div className="mt-6">
+            <p className="text-sm font-medium text-pink-400">
+              ¡Te esperamos con {petName}! 🐾
+            </p>
+          </div>
+
+          {/* TELÉFONO */}
+          <div className="mt-5 border-t pt-5">
+            <a
+              href="tel:5638783564"
+              className="mt-1 inline-block text-sm text-white hover:underline"
+            >
+              ¿Dudas o sugerencias? Comunícate al
+              {" "}56 3878 3564
+            </a>
+          </div>
+
+          {/* NUEVA CITA */}
+          <button
+            type="button"
+            onClick={handleNewBooking}
+            className="mt-8 inline-flex h-10 items-center justify-center rounded-md bg-pink-300 px-5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            Agendar otra cita
+          </button>
+
         </div>
-
-        <p className="mt-5 text-sm text-muted-foreground">
-          Te esperamos en RemiVet con tu mascota.
-        </p>
-
-        <button
-          type="button"
-          onClick={handleNewBooking}
-          className="mt-8 inline-flex h-10 items-center justify-center rounded-md bg-pink-300 px-5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-        >
-          Agendar otra cita
-        </button>
-
-      </div>
-    </main>
-  );
-}
+      </main>
+    );
+  }
 
   /*
    * FORMULARIO DE RESERVA
@@ -211,8 +249,6 @@ if (bookingCompleted) {
         <h1 className="text-3xl font-bold text-pink-400">
           Reserva tu cita
         </h1>
-
-
       </div>
 
       <div className="space-y-6">
@@ -246,8 +282,8 @@ if (bookingCompleted) {
                 key={service.id}
                 value={service.id}
               >
-                {service.name}  ·  {" "}
-                {service.durationMinutes} min 
+                {service.name} ·{" "}
+                {service.durationMinutes} min
               </option>
             ))}
           </select>
@@ -257,7 +293,6 @@ if (bookingCompleted) {
 
         {selectedService && (
           <div className="grid gap-2">
-
             <label
               htmlFor="date"
               className="text-sm font-medium text-pink-300"
@@ -280,7 +315,6 @@ if (bookingCompleted) {
               }
               className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
             />
-
           </div>
         )}
 
@@ -301,12 +335,8 @@ if (bookingCompleted) {
           selectedSlot && (
             <BookingForm
               service={selectedService}
-              slot={
-                new Date(selectedSlot)
-              }
-              onSuccess={
-                handleBookingSuccess
-              }
+              slot={new Date(selectedSlot)}
+              onSuccess={handleBookingSuccess}
             />
           )}
 

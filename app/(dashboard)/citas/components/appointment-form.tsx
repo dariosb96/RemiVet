@@ -73,10 +73,7 @@ export function AppointmentForm({
     name: "time",
   });
 
-  /*
-   * Si existe excludeAppointmentId estamos editando
-   * una cita existente.
-   */
+
   const isEditing = Boolean(
     excludeAppointmentId
   );
@@ -95,12 +92,6 @@ export function AppointmentForm({
         setSlots([]);
         setSlotsError(null);
 
-        /*
-         * Al crear una cita sí queremos limpiar la hora
-         * cuando todavía no hay servicio/fecha.
-         *
-         * Al editar no tocamos el valor existente.
-         */
         if (!isEditing) {
           setValue("time", "", {
             shouldValidate: true,
@@ -112,15 +103,6 @@ export function AppointmentForm({
 
       setLoadingSlots(true);
       setSlotsError(null);
-
-      /*
-       * IMPORTANTE:
-       *
-       * Ya NO limpiamos "time" aquí automáticamente.
-       *
-       * Esto permite que una cita existente conserve
-       * su horario mientras se cargan sus slots.
-       */
 
       try {
         const result =
@@ -137,10 +119,7 @@ export function AppointmentForm({
         if (!result.success) {
           setSlots([]);
 
-          /*
-           * Durante edición conservamos la hora actual.
-           * Durante creación sí la limpiamos.
-           */
+
           if (!isEditing) {
             setValue("time", "", {
               shouldValidate: true,
@@ -158,22 +137,7 @@ export function AppointmentForm({
         let availableSlots =
           result.slots;
 
-        /*
-         * -------------------------------------------------
-         * EDICIÓN
-         * -------------------------------------------------
-         *
-         * La propia cita está excluida de los conflictos
-         * gracias a excludeAppointmentId.
-         *
-         * Sin embargo, dependiendo de cómo genere los slots
-         * availability.ts, el horario actual podría no formar
-         * parte del array.
-         *
-         * Si el formulario ya tiene una hora y no está en
-         * los horarios devueltos, la agregamos únicamente
-         * durante edición.
-         */
+
         if (
           isEditing &&
           time &&
@@ -183,12 +147,6 @@ export function AppointmentForm({
               time
           )
         ) {
-          /*
-           * Creamos una representación local del horario
-           * actual únicamente para mostrarlo en el select.
-           *
-           * No altera la disponibilidad real.
-           */
           availableSlots = [
             `LOCAL_CURRENT_TIME:${time}`,
             ...availableSlots,
@@ -200,10 +158,7 @@ export function AppointmentForm({
         if (
           availableSlots.length === 0
         ) {
-          /*
-           * Si estamos editando y ya tenemos una hora,
-           * no la eliminamos.
-           */
+
           if (!isEditing) {
             setValue("time", "", {
               shouldValidate: true,
@@ -322,13 +277,13 @@ export function AppointmentForm({
 
         <div className="space-y-2">
           <Label htmlFor="petName">
-            Nombre de la mascota
+            Nombre del paciente
           </Label>
 
           <Input
             id="petName"
             {...register("petName")}
-            placeholder="Nombre de la mascota"
+            placeholder="Nombre del paciente"
           />
 
           {errors.petName && (
@@ -362,12 +317,6 @@ export function AppointmentForm({
               }
             );
 
-            /*
-             * Si el usuario cambia manualmente
-             * el servicio, ahora SÍ debemos limpiar
-             * la hora porque puede haber cambiado
-             * la duración/disponibilidad.
-             */
             setValue("time", "", {
               shouldDirty: true,
               shouldValidate: true,

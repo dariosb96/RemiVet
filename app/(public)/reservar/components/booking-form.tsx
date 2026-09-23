@@ -18,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 interface Props {
   service: ServiceDTO;
   slot: Date;
-  onSuccess?: () => void;
+  onSuccess?: (petName: string) => void;
 }
 
 export function BookingForm({
@@ -69,10 +69,8 @@ export function BookingForm({
 
         email:
           String(
-            formData.get(
-              "email"
-            ) ?? ""
-          ).trim(),
+            formData.get("email") ?? ""
+          ).trim() || undefined,
 
         petName:
           String(
@@ -103,7 +101,6 @@ export function BookingForm({
           );
 
         if (!result.success) {
-
           if (
             "errors" in result &&
             result.errors
@@ -136,14 +133,12 @@ export function BookingForm({
               errors
             );
 
-
             setError(
               "Revisa los datos marcados en el formulario."
             );
 
             return;
           }
-
 
           setError(
             result.message ??
@@ -153,7 +148,7 @@ export function BookingForm({
           return;
         }
 
-        onSuccess?.();
+        onSuccess?.(values.petName);
       }
     );
   }
@@ -163,17 +158,11 @@ export function BookingForm({
       onSubmit={handleSubmit}
       className="space-y-8 rounded-xl border bg-card p-6"
     >
-
       <div className="space-y-1">
         <h2 className="text-lg font-semibold text-pink-400">
           Completa tus datos
         </h2>
-
       </div>
-
-      {/* ===================================================
-          ERROR GENERAL
-      =================================================== */}
 
       {error && (
         <div
@@ -185,9 +174,6 @@ export function BookingForm({
       )}
 
       <div className="space-y-4">
-       
-        {/* NOMBRE */}
-
         <div className="grid gap-2">
           <Label htmlFor="ownerName">
             Nombre del propietario
@@ -210,8 +196,6 @@ export function BookingForm({
             </p>
           )}
         </div>
-
-        {/* TELÉFONO */}
 
         <div className="grid gap-2">
           <Label htmlFor="phone">
@@ -238,8 +222,6 @@ export function BookingForm({
           )}
         </div>
 
-        {/* EMAIL */}
-
         <div className="grid gap-2">
           <Label htmlFor="email">
             Correo electrónico (opcional)
@@ -264,23 +246,16 @@ export function BookingForm({
         </div>
       </div>
 
-      {/* ===================================================
-          DATOS DE LA MASCOTA
-      =================================================== */}
-
       <div className="space-y-4">
         <div>
           <h3 className="font-medium text-pink-400">
-            Datos de la mascota
+            Datos del paciente
           </h3>
-
         </div>
-
-        {/* MASCOTA */}
 
         <div className="grid gap-2">
           <Label htmlFor="petName">
-            Nombre de la mascota
+            Nombre del paciente
           </Label>
 
           <Input
@@ -299,8 +274,6 @@ export function BookingForm({
             </p>
           )}
         </div>
-
-        {/* NOTAS */}
 
         <div className="grid gap-2">
           <Label htmlFor="notes">
@@ -327,7 +300,7 @@ export function BookingForm({
 
       <Button
         type="submit"
-        className="w-full bg-pink-500 hover:bg-pink-200"
+        className="w-full bg-pink-400 hover:bg-pink-200"
         disabled={pending}
       >
         {pending
