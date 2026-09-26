@@ -29,12 +29,11 @@ export default async function HomePage() {
             />
           </div>
 
-          {/* Descripción */}
+
           <p className="mx-auto max-w-lg text-lg text-gray-300">
-            Reserva una cita para tu mascota
+            Reserva una cita para tu Animal de compañia 
           </p>
 
-          {/* CTA principal */}
           <div className="mt-8">
             <Link
               href="/reservar"
@@ -46,9 +45,6 @@ export default async function HomePage() {
         </div>
       </div>
 
-      {/* =====================================================
-          FOOTER
-      ====================================================== */}
 
       <footer className="mt-auto border-t px-6 py-5">
         <div className="mx-auto flex max-w-5xl items-center justify-center">

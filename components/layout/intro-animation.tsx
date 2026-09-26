@@ -1,20 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 
 export function IntroAnimation() {
   const [visible, setVisible] = useState(true);
   const [closing, setClosing] = useState(false);
+  const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
+    const dark = document.documentElement.classList.contains("dark");
+    setIsDark(dark);
+
     const closeTimer = window.setTimeout(() => {
       setClosing(true);
-    }, 900);
+    }, 2500);
 
     const removeTimer = window.setTimeout(() => {
       setVisible(false);
-    }, 1250);
+    }, 5250);
 
     return () => {
       window.clearTimeout(closeTimer);
@@ -28,27 +31,22 @@ export function IntroAnimation() {
 
   return (
     <div
-      className={`fixed inset-0 z-[9999] flex items-center justify-center bg-black transition-opacity duration-300 ${
+      className={`fixed inset-0 z-[9999] flex items-center justify-center transition-opacity duration-300 ${
         closing ? "opacity-0" : "opacity-100"
-      }`}
+      } ${isDark ? "bg-black" : "bg-white"}`}
     >
-      <div
-        className={`transition-all duration-700 ease-out ${
-          closing
-            ? "scale-105 opacity-0"
-            : "scale-100 opacity-100"
-        }`}
+      <video
+        key={isDark ? "dark" : "light"}
+        autoPlay
+        muted
+        playsInline
+        className="h-full w-full object-contain"
       >
-        <p className="text-2xl font-bold text-white text-center">Bienvenido</p>
-        <Image
-          src="/RemiLogo.png"
-          alt="Remi Vet"
-          width={420}
-          height={420}
-          priority
-          className="h-auto w-[260px] sm:w-[320px]"
+        <source
+          src={isDark ? "/intro-dark.mp4" : "/intro-light.mp4"}
+          type="video/mp4"
         />
-      </div>
+      </video>
     </div>
   );
 }
