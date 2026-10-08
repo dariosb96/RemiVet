@@ -79,6 +79,19 @@ export function BookingForm({
             ) ?? ""
           ).trim(),
 
+          petSpecies:
+          String(
+            formData.get(
+              "petSpecies"
+            ) ?? ""
+          ).trim(),
+          petAge:
+          String(
+            formData.get(
+              "petAge"
+            ) ?? ""
+          ).trim() || undefined,
+
         notes:
           String(
             formData.get(
@@ -271,6 +284,47 @@ export function BookingForm({
           {fieldErrors.petName && (
             <p className="text-sm text-destructive">
               {fieldErrors.petName}
+            </p>
+          )}
+        </div>
+          <div className="grid gap-2">
+          <Label htmlFor="petSpecies">
+            Especie
+          </Label>
+
+          <Input
+            id="petSpecies"
+            name="petSpecies"
+            placeholder="Ej. Perro"
+            required
+            aria-invalid={
+              !!fieldErrors.petSpecies
+            }
+          />
+
+          {fieldErrors.petSpecies && (
+            <p className="text-sm text-destructive">
+              {fieldErrors.petSpecies}
+            </p>
+          )}
+        </div>
+          <div className="grid gap-2">
+          <Label htmlFor="petAge">
+            Edad
+          </Label>
+
+          <Input
+            id="petAge"
+            name="petAge"
+            placeholder="Ej. 5 años"
+                        aria-invalid={
+              !!fieldErrors.petAge
+            }
+          />
+
+          {fieldErrors.petAge && (
+            <p className="text-sm text-destructive">
+              {fieldErrors.petAge}
             </p>
           )}
         </div>

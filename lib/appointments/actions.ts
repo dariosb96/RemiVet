@@ -75,6 +75,8 @@ function buildCalendarEventData(
     phone: string;
     email: string | null;
     petName: string;
+    petSpecies: string;
+    petAge: string | null;
     notes: string | null;
     startAt: Date;
     endAt: Date;
@@ -90,6 +92,8 @@ function buildCalendarEventData(
       ? `Email: ${appointment.email}`
       : null,
     `Mascota: ${appointment.petName}`,
+`Especie: ${appointment.petSpecies}`,
+`Edad: ${appointment.petAge} `,
     appointment.notes
       ? `Notas: ${appointment.notes}`
       : null,
@@ -260,6 +264,12 @@ export async function updateAppointment(
         petName:
           prepared.petName,
 
+        petSpecies:
+          prepared.petSpecies,
+
+        petAge:
+          prepared.petAge,
+
         notes:
           prepared.notes,
 
@@ -285,6 +295,12 @@ export async function updateAppointment(
 
         petName:
           current.petName,
+
+        petSpecies:
+          current.petSpecies,
+
+        petAge:
+          current.petAge,
 
         notes:
           current.notes,
@@ -374,6 +390,12 @@ export async function updateAppointment(
 
           petName:
             prepared.petName,
+            
+          petSpecies:
+            prepared.petSpecies,
+
+          petAge:
+            prepared.petAge,
 
           serviceId:
             prepared.serviceId,

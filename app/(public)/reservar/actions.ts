@@ -33,6 +33,8 @@ export interface PublicAppointmentFormValues {
   phone: string;
   email?: string;
   petName: string;
+  petSpecies: string;
+  petAge?: string;
   serviceId: string;
   startAt: string;
   notes?: string;
@@ -485,6 +487,13 @@ export async function createPublicAppointment(
 
       petName:
         values.petName,
+      
+      petSpecies:
+        values.petSpecies,
+       
+       petAge:
+        values.petAge,
+
 
       serviceId:
         values.serviceId,

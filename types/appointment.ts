@@ -19,6 +19,8 @@ export interface AppointmentDTO {
   phone: string;
   email: string | null;
   petName: string;
+  petSpecies: string;
+  petAge: string | null;
   serviceId: string;
   startAt: string;
   endAt: string;

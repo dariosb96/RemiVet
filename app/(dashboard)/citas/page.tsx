@@ -85,6 +85,8 @@ export default async function CitasPage() {
       phone: appointment.phone,
       email: appointment.email,
       petName: appointment.petName,
+      petSpecies: appointment.petSpecies,
+      petAge: appointment.petAge,
 
       startAt: appointment.startAt.toISOString(),
       endAt: appointment.endAt.toISOString(),

@@ -380,6 +380,8 @@ export async function prepareAppointment(
     phone: values.phone.trim(),
     email: values.email?.trim() || null,
     petName: values.petName.trim(),
+    petSpecies: values.petSpecies.trim(),
+    petAge: values.petAge?.trim() || null,
     serviceId: service.id,
     startAt,
     endAt,

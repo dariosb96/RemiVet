@@ -13,6 +13,10 @@ export const appointmentSchema = z.object({
 
   petName: z.string().trim().min(2),
 
+  petSpecies: z.string().trim().min(2),
+
+  petAge: z.string().trim().min(1).optional(),
+
   serviceId: z.string().min(1),
 
   date: z.string(),

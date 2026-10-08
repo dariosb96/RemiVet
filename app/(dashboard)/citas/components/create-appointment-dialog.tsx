@@ -41,6 +41,8 @@ const defaultValues: AppointmentFormValues = {
   phone: "",
   email: "",
   petName: "",
+  petSpecies: "",
+  petAge: "",
   serviceId: "",
   date: "",
   time: "",

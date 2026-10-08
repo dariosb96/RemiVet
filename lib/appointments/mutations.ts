@@ -48,6 +48,8 @@ function buildCalendarEventData(appointment: {
   phone: string;
   email: string | null;
   petName: string;
+  petSpecies: string;
+  petAge: string | null;
   notes: string | null;
   startAt: Date;
   endAt: Date;
@@ -154,6 +156,8 @@ export async function createAppointmentInternal(
         phone: prepared.phone,
         email: prepared.email,
         petName: prepared.petName,
+        petSpecies: prepared.petSpecies,
+        petAge: prepared.petAge,
         notes: prepared.notes,
         startAt: prepared.startAt,
         endAt: prepared.endAt,
@@ -229,6 +233,10 @@ export async function createAppointmentInternal(
               prepared.email,
             petName:
               prepared.petName,
+            petSpecies:
+              prepared.petSpecies,
+            petAge:
+              prepared.petAge,
             serviceId:
               prepared.serviceId,
             startAt:

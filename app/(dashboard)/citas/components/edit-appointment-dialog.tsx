@@ -95,6 +95,8 @@ function getAppointmentFormValues(
     phone: appointment.phone,
     email: appointment.email ?? "",
     petName: appointment.petName,
+    petSpecies: appointment.petSpecies,
+    petAge: appointment.petAge ?? "",
 
     serviceId: appointment.serviceId,
 
@@ -108,7 +110,6 @@ function getAppointmentFormValues(
       AppointmentStatus.PENDING,
   };
 }
-
 export function EditAppointmentDialog({
   appointment,
   services,

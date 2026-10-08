@@ -140,6 +140,17 @@ export function AppointmentsTable({
                 {appointment.petName}
               </p>
             </div>
+              <div className="min-w-0">
+              <p className="truncate">
+                {appointment.petSpecies}
+              </p>
+            </div>
+  <div className="min-w-0">
+              <p className="truncate">
+                {appointment.petAge}
+              </p>
+            </div>
+
 
             {/* Servicio */}
 
