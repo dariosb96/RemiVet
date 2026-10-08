@@ -66,6 +66,8 @@ model Appointment {
   email     String?
 
   petName String
+  petSpecies String
+  petAge String?
 
   startAt DateTime
   endAt   DateTime
