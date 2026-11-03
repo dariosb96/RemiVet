@@ -87,13 +87,11 @@ function getDefaultBusinessDays() {
       },
 
       "6": {
-        enabled: false,
-        openingTime:
-          DEFAULT_OPENING_TIME,
-        closingTime:
-          DEFAULT_CLOSING_TIME,
-        blockedRanges: [],
-      },
+  enabled: true,
+  openingTime: "09:00",
+  closingTime: "16:00",
+  blockedRanges: [],
+},
     },
 
     exceptions: {},

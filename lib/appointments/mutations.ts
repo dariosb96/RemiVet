@@ -64,6 +64,10 @@ function buildCalendarEventData(appointment: {
       ? `Email: ${appointment.email}`
       : null,
     `Mascota: ${appointment.petName}`,
+    `Especie: ${appointment.petSpecies}`,
+    appointment.petAge
+      ? `Edad: ${appointment.petAge}`
+      : null,
     appointment.notes
       ? `Notas: ${appointment.notes}`
       : null,
